@@ -31,9 +31,12 @@ fun Project.createSkikoWasmJsRuntimeDependency(
     upstreamSkikoVersion: Provider<String>,
     forkSkikoDependency: Provider<MinimalExternalModuleDependency>?,
 ) {
-    val composePluginApplied = plugins.hasPlugin("org.jetbrains.compose")
-    if (forkSkikoDependency == null && composePluginApplied) {
-        // The Compose plugin already owns the upstream combined runtime in these modules.
+    if (
+        plugins.hasPlugin(UPSTREAM_COMPOSE_PLUGIN_ID) ||
+        plugins.hasPlugin(FORK_COMPOSE_PLUGIN_ID)
+    ) {
+        // The Compose plugin owns runtime selection for every module that applies it. The forked
+        // plugin handles both upstream and fork UI lineages, so no consumer override belongs here.
         return
     }
 
@@ -43,7 +46,7 @@ fun Project.createSkikoWasmJsRuntimeDependency(
         if (forkSkikoDependency == null) {
             targets.configureUpstreamRuntime(this, upstreamSkikoVersion)
         } else {
-            targets.configureForkRuntime(this, forkSkikoDependency, composePluginApplied)
+            targets.configureForkRuntime(this, forkSkikoDependency)
         }
     }
 }
@@ -71,7 +74,6 @@ private fun Collection<KotlinJsIrTarget>.configureUpstreamRuntime(
 private fun Collection<KotlinJsIrTarget>.configureForkRuntime(
     project: Project,
     dependency: Provider<MinimalExternalModuleDependency>,
-    composePluginApplied: Boolean,
 ) {
     val runtimes = associateWith { target ->
         project.createForkRuntimeConfiguration(target, dependency)
@@ -80,23 +82,8 @@ private fun Collection<KotlinJsIrTarget>.configureForkRuntime(
         project.registerForkRuntimeVerification(target, runtime, dependency)
     }
 
-    if (composePluginApplied) {
-        // Reuse the Compose plugin's established task and resource wiring, replacing only its
-        // upstream combined-runtime input with the two target-aware fork configurations.
-        project.configurations.named(COMPOSE_SKIKO_RUNTIME_CONFIGURATION).configure {
-            isCanBeResolved = false
-            description = "Superseded by Coil's target-specific fork Skiko runtime configurations."
-        }
-        project.tasks.named("unpackSkikoWasmRuntime", UnpackSkikoWasmRuntimeTask::class.java).configure {
-            skikoRuntimeFiles = project.files(runtimes.values)
-            // The Compose plugin normally skips this task when its runtime cannot resolve. Fork
-            // modules require the runtime, so surface missing or incompatible producer variants.
-            setOnlyIf { true }
-        }
-    } else {
-        runtimes.forEach { (target, runtime) ->
-            target.configureRuntimeResources(project, runtime)
-        }
+    runtimes.forEach { (target, runtime) ->
+        target.configureRuntimeResources(project, runtime)
     }
 }
 
@@ -232,6 +219,7 @@ private fun AttributeContainer.stringAttribute(name: String): String? {
 }
 
 private const val UPSTREAM_SKIKO_GROUP = "org.jetbrains.skiko"
+private const val UPSTREAM_COMPOSE_PLUGIN_ID = "org.jetbrains.compose"
+private const val FORK_COMPOSE_PLUGIN_ID = "io.github.archivesteak.compose"
 private const val SKIKO_RUNTIME_USAGE = "skiko-runtime"
-private const val COMPOSE_SKIKO_RUNTIME_CONFIGURATION = "COMPOSE_SKIKO_JS_WASM_RUNTIME"
 private const val KOTLIN_PLATFORM_TYPE_ATTRIBUTE = "org.jetbrains.kotlin.platform.type"

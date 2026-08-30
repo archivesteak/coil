@@ -22,6 +22,11 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 buildscript {
     repositories {
         google()
+        mavenLocal {
+            content {
+                includeGroupByRegex("io\\.github\\.archivesteak\\.compose(\\..*)?")
+            }
+        }
         mavenCentral()
     }
     dependencies {

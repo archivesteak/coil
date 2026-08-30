@@ -8,6 +8,11 @@ plugins {
 
 repositories {
     google()
+    mavenLocal {
+        content {
+            includeGroupByRegex("io\\.github\\.archivesteak\\.compose(\\..*)?")
+        }
+    }
     mavenCentral()
 }
 

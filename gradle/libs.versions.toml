@@ -9,8 +9,8 @@ coroutines = "1.10.2"
 dokka = "2.2.0"
 jetbrains-compose = "1.12.0"
 jetbrains-compose-material3 = "1.12.0-alpha03"
-# The Compose Gradle plugin stays upstream; Coil's Compose API dependency needs the forked KMP
-# publication because it is the artifact that carries a mingwX64 variant.
+# The forked Compose plugin owns fork-coordinate mapping and target-aware Skiko runtime selection.
+# Keeping that policy in the producer avoids consumer-side dependency substitutions.
 archivesteak-compose = "1.12.0-beta02-mingw"
 jetbrains-compose-material-icons-extended = "1.7.3"
 kotlin = "2.4.10"
@@ -39,7 +39,7 @@ gradlePlugin-android = { module = "com.android.tools.build:gradle", version.ref 
 gradlePlugin-atomicFu = { module = "org.jetbrains.kotlinx:atomicfu-gradle-plugin", version.ref = "atomicfu" }
 gradlePlugin-composeCompiler = { module = "org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin", version.ref = "kotlin" }
 gradlePlugin-dokka = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version.ref = "dokka" }
-gradlePlugin-jetbrainsCompose = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "jetbrains-compose" }
+gradlePlugin-jetbrainsCompose = { module = "io.github.archivesteak.compose:compose-gradle-plugin", version.ref = "archivesteak-compose" }
 gradlePlugin-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 gradlePlugin-mavenPublish = "com.vanniktech:gradle-maven-publish-plugin:0.37.0"
 gradlePlugin-paparazzi = { module = "app.cash.paparazzi:paparazzi-gradle-plugin", version.ref = "paparazzi" }
