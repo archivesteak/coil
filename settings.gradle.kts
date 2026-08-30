@@ -6,6 +6,46 @@ pluginManagement {
     }
 }
 
+val explicitForkRepositoryPath = System.getProperty("maven.repo.local")
+    ?.trim()
+    ?.takeIf(String::isNotEmpty)
+    ?: error(
+        "This build requires an explicit isolated fork repository. " +
+            "Pass -Dmaven.repo.local=<absolute repository path>; " +
+            "ambient ~/.m2 resolution is disabled.",
+    )
+val suppliedForkRepository = java.io.File(explicitForkRepositoryPath)
+check(suppliedForkRepository.isAbsolute) {
+    "The isolated fork repository path must be absolute: $explicitForkRepositoryPath"
+}
+val explicitForkRepository = suppliedForkRepository.canonicalFile
+val ambientMavenDirectory = file(System.getProperty("user.home"))
+    .resolve(".m2")
+    .canonicalFile
+check(explicitForkRepository.isDirectory) {
+    "The isolated fork repository must be an existing absolute directory: " +
+        explicitForkRepository.path
+}
+check(!explicitForkRepository.toPath().startsWith(ambientMavenDirectory.toPath())) {
+    "The isolated fork repository must not be inside the ambient Maven directory " +
+        "${ambientMavenDirectory.path}: ${explicitForkRepository.path}"
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        maven {
+            name = "isolatedForkRepository"
+            url = uri(explicitForkRepository)
+            content {
+                includeGroupByRegex("io\\.github\\.archivesteak(\\..*)?")
+            }
+        }
+        mavenCentral()
+    }
+}
+
 rootProject.name = "coil-root"
 
 // https://docs.gradle.org/7.4/userguide/declaring_dependencies.html#sec:type-safe-project-accessors

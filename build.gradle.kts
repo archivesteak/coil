@@ -22,7 +22,9 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 buildscript {
     repositories {
         google()
-        mavenLocal {
+        maven {
+            name = "isolatedForkRepository"
+            url = uri(System.getProperty("maven.repo.local"))
             content {
                 includeGroupByRegex("io\\.github\\.archivesteak\\.compose(\\..*)?")
             }
@@ -101,16 +103,6 @@ verifyMingwClosureLocalPublicationScope.configure {
 }
 
 allprojects {
-    repositories {
-        google()
-        mavenLocal {
-            content {
-                includeGroupByRegex("io\\.github\\.archivesteak(\\..*)?")
-            }
-        }
-        mavenCentral()
-    }
-
     // Necessary to publish to Maven.
     group = groupId
     version = versionName

@@ -1,3 +1,4 @@
+import java.io.File
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
@@ -6,9 +7,36 @@ plugins {
     `java-gradle-plugin`
 }
 
+val explicitForkRepositoryPath = System.getProperty("maven.repo.local")
+    ?.trim()
+    ?.takeIf(String::isNotEmpty)
+    ?: error(
+        "This build requires an explicit isolated fork repository. " +
+            "Pass -Dmaven.repo.local=<absolute repository path>; " +
+            "ambient ~/.m2 resolution is disabled.",
+    )
+val suppliedForkRepository = File(explicitForkRepositoryPath)
+check(suppliedForkRepository.isAbsolute) {
+    "The isolated fork repository path must be absolute: $explicitForkRepositoryPath"
+}
+val explicitForkRepository = suppliedForkRepository.canonicalFile
+val ambientMavenDirectory = File(System.getProperty("user.home"))
+    .resolve(".m2")
+    .canonicalFile
+check(explicitForkRepository.isDirectory) {
+    "The isolated fork repository must be an existing absolute directory: " +
+        explicitForkRepository.path
+}
+check(!explicitForkRepository.toPath().startsWith(ambientMavenDirectory.toPath())) {
+    "The isolated fork repository must not be inside the ambient Maven directory " +
+        "${ambientMavenDirectory.path}: ${explicitForkRepository.path}"
+}
+
 repositories {
     google()
-    mavenLocal {
+    maven {
+        name = "isolatedForkRepository"
+        url = uri(explicitForkRepository)
         content {
             includeGroupByRegex("io\\.github\\.archivesteak\\.compose(\\..*)?")
         }
