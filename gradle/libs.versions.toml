@@ -9,6 +9,9 @@ coroutines = "1.10.2"
 dokka = "2.2.0"
 jetbrains-compose = "1.12.0"
 jetbrains-compose-material3 = "1.12.0-alpha03"
+# The Compose Gradle plugin stays upstream; Coil's Compose API dependency needs the forked KMP
+# publication because it is the artifact that carries a mingwX64 variant.
+archivesteak-compose = "1.12.0-beta02-mingw"
 jetbrains-compose-material-icons-extended = "1.7.3"
 kotlin = "2.4.10"
 ktlint = "1.8.0"
@@ -20,6 +23,9 @@ okio = "3.18.1"
 paparazzi = "2.0.0-alpha05"
 roborazzi = "1.73.0"
 skiko = "0.150.1"
+# Untouched modules still use the upstream combined JS/Wasm runtime above. The six MinGW closure
+# modules use the fork root below for both their KMP bindings and target-specific web runtimes.
+archivesteak-skiko = "0.151.0-alpha04-mingw"
 
 [plugins]
 baselineProfile = { id = "androidx.baselineprofile", version.ref = "androidx-benchmark" }
@@ -69,7 +75,7 @@ coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", ve
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "jetbrains-compose" }
-compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "jetbrains-compose" }
+compose-foundation = { module = "io.github.archivesteak.compose.foundation:foundation", version.ref = "archivesteak-compose" }
 compose-material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "jetbrains-compose-material-icons-extended" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "jetbrains-compose-material3" }
 compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "jetbrains-compose" }
@@ -109,7 +115,7 @@ roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose"
 roborazzi-compose-desktop = { module = "io.github.takahirom.roborazzi:roborazzi-compose-desktop", version.ref = "roborazzi" }
 roborazzi-junit = { module = "io.github.takahirom.roborazzi:roborazzi-junit-rule", version.ref = "roborazzi" }
 
-skiko = { module = "org.jetbrains.skiko:skiko", version.ref = "skiko" }
+skiko = { module = "io.github.archivesteak.skiko:skiko", version.ref = "archivesteak-skiko" }
 
 svg = "com.caverock:androidsvg-aar:1.4"
 

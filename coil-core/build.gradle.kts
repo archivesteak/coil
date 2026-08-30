@@ -9,7 +9,11 @@ plugins {
     id("androidx.baselineprofile.consumer")
 }
 
-addAllMultiplatformTargets(libs.versions.skiko)
+addAllMultiplatformTargets(
+    libs.versions.skiko,
+    skikoRuntimeDependency = libs.skiko,
+    enableNativeMingw = true,
+)
 multiplatformAndroidLibrary(name = "coil3.core") {
     androidResources {
         enable = true

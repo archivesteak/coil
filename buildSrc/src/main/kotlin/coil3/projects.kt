@@ -171,8 +171,8 @@ fun Project.setupPublishing(
 ) {
     extensions.configure<MavenPublishBaseExtension> {
         pomFromGradleProperties()
-        publishToMavenCentral()
-        signAllPublications()
+        // This fork intentionally configures local Maven publications only. Remote publishing and
+        // signing stay disabled until a release is explicitly approved and configured.
         action()
     }
 }

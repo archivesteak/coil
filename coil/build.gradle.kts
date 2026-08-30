@@ -7,7 +7,11 @@ plugins {
     id("org.jetbrains.kotlinx.atomicfu")
 }
 
-addAllMultiplatformTargets(libs.versions.skiko)
+addAllMultiplatformTargets(
+    libs.versions.skiko,
+    skikoRuntimeDependency = libs.skiko,
+    enableNativeMingw = true,
+)
 multiplatformAndroidLibrary(name = "coil3.singleton")
 
 kotlin {

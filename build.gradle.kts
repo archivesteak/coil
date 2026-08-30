@@ -55,6 +55,11 @@ dependencies {
 allprojects {
     repositories {
         google()
+        mavenLocal {
+            content {
+                includeGroupByRegex("io\\.github\\.archivesteak(\\..*)?")
+            }
+        }
         mavenCentral()
     }
 

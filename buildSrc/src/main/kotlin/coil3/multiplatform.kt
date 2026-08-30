@@ -2,6 +2,7 @@ package coil3
 
 import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.artifacts.MinimalExternalModuleDependency
 import org.gradle.api.provider.Provider
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.invoke
@@ -11,8 +12,10 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.NpmDependency
 
 fun Project.addAllMultiplatformTargets(
     skikoVersion: Provider<String>,
+    skikoRuntimeDependency: Provider<MinimalExternalModuleDependency>? = null,
     enableWasm: Boolean = true,
     enableNativeLinux: Boolean = true,
+    enableNativeMingw: Boolean = false,
 ) {
     plugins.withId("org.jetbrains.kotlin.multiplatform") {
         extensions.configure<KotlinMultiplatformExtension> {
@@ -96,11 +99,15 @@ fun Project.addAllMultiplatformTargets(
                 linuxX64()
                 linuxArm64()
             }
+
+            if (enableNativeMingw) {
+                mingwX64()
+            }
         }
 
         addNodePolyfillWebpackPlugin(enableWasm)
         applyKotlinJsImplicitDependencyWorkaround(enableWasm)
-        createSkikoWasmJsRuntimeDependency(skikoVersion)
+        createSkikoWasmJsRuntimeDependency(skikoVersion, skikoRuntimeDependency)
     }
 }
 

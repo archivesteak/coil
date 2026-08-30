@@ -74,6 +74,7 @@ private fun KotlinHierarchyBuilder.groupNative() {
 
         groupApple()
         groupLinux()
+        groupMingw()
     }
 }
 
@@ -97,10 +98,17 @@ private fun KotlinHierarchyBuilder.groupLinux() {
     }
 }
 
+private fun KotlinHierarchyBuilder.groupMingw() {
+    group("mingw") {
+        withMingw()
+    }
+}
+
 private fun KotlinHierarchyBuilder.groupNonApple() {
     group("nonApple") {
         groupNonNative()
         groupLinux()
+        groupMingw()
     }
 }
 

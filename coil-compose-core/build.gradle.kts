@@ -11,7 +11,12 @@ plugins {
     id("androidx.baselineprofile.consumer")
 }
 
-addAllMultiplatformTargets(libs.versions.skiko, enableNativeLinux = false)
+addAllMultiplatformTargets(
+    libs.versions.skiko,
+    skikoRuntimeDependency = libs.skiko,
+    enableNativeLinux = false,
+    enableNativeMingw = true,
+)
 multiplatformAndroidLibrary(name = "coil3.compose.core")
 
 kotlin {

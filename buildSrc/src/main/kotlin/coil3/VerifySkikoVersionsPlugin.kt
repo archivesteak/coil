@@ -4,11 +4,12 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.component.ModuleComponentSelector
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
+import org.gradle.api.publish.PublishingExtension
 
 class VerifySkikoVersionsPlugin : Plugin<Project> {
 
     override fun apply(target: Project) {
-        target.tasks.register(
+        val verifyVersions = target.tasks.register(
             "verifySkikoVersionsMatch",
             VerifySkikoVersionsTask::class.java,
         ) {
@@ -24,16 +25,47 @@ class VerifySkikoVersionsPlugin : Plugin<Project> {
             val composeRequested = target.provider {
                 requestedSkikoVersionFromJvmByOrigin(
                     targetProject = target.project(":coil-compose-core"),
-                    originGroupPrefix = "org.jetbrains.compose",
+                    originGroupPrefix = "io.github.archivesteak.compose",
                 )
             }
             coreRequestedSkikoVersion.set(coreRequested)
             composeRequestedSkikoVersion.set(composeRequested)
         }
 
+        val verifyRuntimeVariants = target.tasks.register("verifySkikoRuntimeVariants") {
+            group = "verification"
+            description = "Verifies fork Skiko JS/Wasm runtime variants in the MinGW module closure."
+        }
+
+        val verifyPublicationFreeze = target.tasks.register(
+            "verifyPublicationFreeze",
+            VerifyPublicationFreezeTask::class.java,
+        ) {
+            group = "verification"
+            description = "Ensures this fork cannot publish to a remote Maven repository or sign."
+            forbiddenTaskPaths.set(target.provider {
+                target.allprojects.flatMap { project ->
+                    project.tasks.names
+                        .filter { name ->
+                            name.contains("MavenCentral", ignoreCase = true) ||
+                                (name.startsWith("sign") && name.contains("Publication"))
+                        }
+                        .map { name -> "${project.path}:$name" }
+                }.sorted()
+            })
+            remotePublishingRepositories.set(target.provider {
+                target.allprojects.flatMap { project ->
+                    project.extensions.findByType(PublishingExtension::class.java)
+                        ?.repositories
+                        ?.map { repository -> "${project.path}:${repository.name}" }
+                        .orEmpty()
+                }.sorted()
+            })
+        }
+
         // Attach verification only to the root `check` task.
         target.tasks.matching { it.name == "check" }.configureEach {
-            dependsOn(target.tasks.named("verifySkikoVersionsMatch"))
+            dependsOn(verifyVersions, verifyRuntimeVariants, verifyPublicationFreeze)
         }
     }
 
@@ -56,7 +88,7 @@ class VerifySkikoVersionsPlugin : Plugin<Project> {
                 if (
                     fromId != null &&
                     fromId.group.startsWith(originGroupPrefix) &&
-                    requested.group == "org.jetbrains.skiko"
+                    requested.group == "io.github.archivesteak.skiko"
                 ) {
                     return requested.version
                 }
