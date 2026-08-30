@@ -34,10 +34,14 @@ check(!explicitForkRepository.toPath().startsWith(ambientMavenDirectory.toPath()
 
 repositories {
     google()
-    maven {
-        name = "isolatedForkRepository"
-        url = uri(explicitForkRepository)
-        content {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "isolatedForkRepository"
+                url = uri(explicitForkRepository)
+            }
+        }
+        filter {
             includeGroupByRegex("io\\.github\\.archivesteak\\.compose(\\..*)?")
         }
     }

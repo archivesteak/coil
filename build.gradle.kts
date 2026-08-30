@@ -22,10 +22,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 buildscript {
     repositories {
         google()
-        maven {
-            name = "isolatedForkRepository"
-            url = uri(System.getProperty("maven.repo.local"))
-            content {
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "isolatedForkRepository"
+                    url = uri(System.getProperty("maven.repo.local"))
+                }
+            }
+            filter {
                 includeGroupByRegex("io\\.github\\.archivesteak\\.compose(\\..*)?")
             }
         }
