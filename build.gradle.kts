@@ -1,9 +1,14 @@
+import coil3.VerifyLocalPublicationScopeTask
 import coil3.enableComposeMetrics
 import coil3.groupId
+import coil3.isRemotePublicationTask
+import coil3.mingwClosureLocalPublicationTaskPaths
 import coil3.publicModules
+import coil3.remotePublicationProperty
 import coil3.versionName
 import com.diffplug.gradle.spotless.SpotlessExtension
 import dev.drewhamilton.poko.gradle.PokoPluginExtension
+import org.gradle.api.publish.maven.tasks.PublishToMavenLocal
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
@@ -52,6 +57,44 @@ dependencies {
     }
 }
 
+val verifyMingwClosureLocalPublicationScope = tasks.register<VerifyLocalPublicationScopeTask>(
+    "verifyMingwClosureLocalPublicationScope",
+) {
+    group = "verification"
+    description = "Fails unless local Maven publication is limited to the MinGW module closure."
+    expectedTaskPaths.set(mingwClosureLocalPublicationTaskPaths)
+    enabledTaskPaths.set(
+        provider {
+            allprojects.flatMap { project ->
+                project.tasks.withType<PublishToMavenLocal>()
+                    .filter { task -> task.enabled }
+                    .map { task -> task.path }
+            }.toSet()
+        },
+    )
+}
+
+val publishMingwClosureToMavenLocal = tasks.register("publishMingwClosureToMavenLocal") {
+    group = "publishing"
+    description = "Publishes only the six MinGW closure modules' root and mingwX64 publications."
+    dependsOn(verifyMingwClosureLocalPublicationScope)
+}
+
+val remotePublicationEnabled = providers.gradleProperty(remotePublicationProperty)
+    .map { value -> value.toBooleanStrict() }
+    .orElse(false)
+
+verifyMingwClosureLocalPublicationScope.configure {
+    aggregateTaskPaths.set(
+        provider {
+            val aggregate = publishMingwClosureToMavenLocal.get()
+            aggregate.taskDependencies.getDependencies(aggregate)
+                .filterIsInstance<PublishToMavenLocal>()
+                .mapTo(mutableSetOf()) { task -> task.path }
+        },
+    )
+}
+
 allprojects {
     repositories {
         google()
@@ -66,6 +109,24 @@ allprojects {
     // Necessary to publish to Maven.
     group = groupId
     version = versionName
+
+    tasks.withType<PublishToMavenLocal>().all {
+        val publicationTask = this
+        val isInMingwClosure = path in mingwClosureLocalPublicationTaskPaths
+        enabled = isInMingwClosure
+        if (isInMingwClosure) {
+            publishMingwClosureToMavenLocal.configure {
+                dependsOn(publicationTask)
+            }
+            mustRunAfter(verifyMingwClosureLocalPublicationScope)
+        }
+    }
+
+    tasks.configureEach {
+        if (!remotePublicationEnabled.get() && isRemotePublicationTask()) {
+            enabled = false
+        }
+    }
 
     // Target JVM 11.
     tasks.withType<JavaCompile>().configureEach {

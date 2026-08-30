@@ -44,10 +44,10 @@ class FileUriKeyerTest : RobolectricTest() {
         )
 
         file.setLastModified(1234L)
-        val firstKey = keyer.key("file://$file".toUri(), options)
+        val firstKey = keyer.key("file://$file".toUri(separator = "/"), options)
 
         file.setLastModified(4321L)
-        val secondKey = keyer.key("file://$file".toUri(), options)
+        val secondKey = keyer.key("file://$file".toUri(separator = "/"), options)
 
         assertNotEquals(secondKey, firstKey)
     }
@@ -65,7 +65,7 @@ class FileUriKeyerTest : RobolectricTest() {
         )
 
         file.setLastModified(1234L)
-        val actual = keyer.key("file://$file".toUri(), options)
+        val actual = keyer.key("file://$file".toUri(separator = "/"), options)
 
         assertNull(actual)
     }

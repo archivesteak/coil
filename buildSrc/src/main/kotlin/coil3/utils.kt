@@ -2,6 +2,9 @@ package coil3
 
 import kotlin.math.pow
 import org.gradle.api.Project
+import org.gradle.api.Task
+import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
+import org.gradle.plugins.signing.Sign
 
 val publicModules = setOf(
     "coil",
@@ -18,6 +21,42 @@ val publicModules = setOf(
     "coil-video",
     "coil-test",
 )
+
+/** The complete project closure intentionally ported and tested for the mingwX64 fork. */
+val mingwClosureModules = setOf(
+    "coil",
+    "coil-core",
+    "coil-compose",
+    "coil-compose-core",
+    "coil-network-core",
+    "coil-network-ktor3",
+)
+
+val mingwClosureLocalPublicationTaskPaths = mingwClosureModules.flatMapTo(sortedSetOf()) { module ->
+    listOf(
+        ":$module:publishKotlinMultiplatformPublicationToMavenLocal",
+        ":$module:publishMingwX64PublicationToMavenLocal",
+    )
+}
+
+const val remotePublicationProperty = "coil.remotePublication.enabled"
+
+fun Task.isRemotePublicationTask(): Boolean {
+    if (this is PublishToMavenRepository || this is Sign) return true
+
+    val taskName = name.lowercase()
+    return "mavencentral" in taskName ||
+        "sonatype" in taskName ||
+        taskName == "uploadarchives" ||
+        (
+            "upload" in taskName &&
+                ("publication" in taskName || "repository" in taskName)
+        ) ||
+        (
+            ("close" in taskName || "release" in taskName || "drop" in taskName) &&
+                ("repository" in taskName || "staging" in taskName)
+        )
+}
 
 val Project.minSdk: Int
     get() = intProperty("minSdk")

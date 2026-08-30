@@ -23,9 +23,8 @@ class FileMapperTest : RobolectricTest() {
     /** Regression test: https://github.com/coil-kt/coil/issues/1344 */
     @Test
     fun parsesPoundCharacterCorrectly() {
-        val path = "/sdcard/fi#le.jpg"
         val file = File("/sdcard/fi#le.jpg")
-        assertEquals(path, mapper.map(file, Options(context)).filePath)
+        assertEquals(file.path, mapper.map(file, Options(context)).filePath)
     }
 
     /** Regression test: https://github.com/coil-kt/coil/issues/1513 */

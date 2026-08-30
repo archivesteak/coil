@@ -3,6 +3,7 @@ package coil3
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import okio.Path
 
 class UriTest {
 
@@ -12,7 +13,7 @@ class UriTest {
         assertEquals("https", uri.scheme)
         assertEquals("www.example.com", uri.authority)
         assertEquals("/image.jpg", uri.path)
-        assertEquals("/image.jpg", uri.filePath)
+        assertEquals("/image.jpg".toNativePath(), uri.filePath)
         assertEquals(listOf("image.jpg"), uri.pathSegments)
         assertEquals("q=jpg", uri.query)
         assertEquals("fragment", uri.fragment)
@@ -24,7 +25,7 @@ class UriTest {
         assertNull(uri.scheme)
         assertNull(uri.authority)
         assertEquals("/test/absolute/image.jpg", uri.path)
-        assertEquals("/test/absolute/image.jpg", uri.filePath)
+        assertEquals("/test/absolute/image.jpg".toNativePath(), uri.filePath)
         assertEquals(listOf("test", "absolute", "image.jpg"), uri.pathSegments)
         assertNull(uri.query)
         assertEquals("something", uri.fragment)
@@ -36,7 +37,7 @@ class UriTest {
         assertNull(uri.scheme)
         assertNull(uri.authority)
         assertEquals("test/relative/image.jpg", uri.path)
-        assertEquals("test/relative/image.jpg", uri.filePath)
+        assertEquals("test/relative/image.jpg".toNativePath(), uri.filePath)
         assertEquals(listOf("test", "relative", "image.jpg"), uri.pathSegments)
         assertNull(uri.query)
         assertEquals("something", uri.fragment)
@@ -48,7 +49,7 @@ class UriTest {
         assertEquals("file", uri.scheme)
         assertEquals("", uri.authority)
         assertEquals("/test/absolute/image.jpg", uri.path)
-        assertEquals("/test/absolute/image.jpg", uri.filePath)
+        assertEquals("/test/absolute/image.jpg".toNativePath(), uri.filePath)
         assertEquals(listOf("test", "absolute", "image.jpg"), uri.pathSegments)
         assertNull(uri.query)
         assertEquals("something", uri.fragment)
@@ -62,7 +63,12 @@ class UriTest {
         // The authority is always the first path after the scheme and "://".
         assertEquals("test", uri.authority)
         assertEquals("/relative/image.jpg", uri.path)
-        assertEquals("/relative/image.jpg", uri.filePath)
+        val expectedFilePath = if (Path.DIRECTORY_SEPARATOR == "\\") {
+            "\\\\test\\relative\\image.jpg"
+        } else {
+            "/relative/image.jpg"
+        }
+        assertEquals(expectedFilePath, uri.filePath)
         assertEquals(listOf("relative", "image.jpg"), uri.pathSegments)
         assertNull(uri.query)
         assertEquals("something", uri.fragment)
@@ -74,7 +80,7 @@ class UriTest {
         assertEquals("file", uri.scheme)
         assertEquals("", uri.authority)
         assertEquals("/test/image.jpg", uri.path)
-        assertEquals("/test/image.jpg", uri.filePath)
+        assertEquals("/test/image.jpg".toNativePath(), uri.filePath)
         assertEquals(listOf("test", "image.jpg"), uri.pathSegments)
         assertNull(uri.query)
         assertNull(uri.fragment)
@@ -86,7 +92,7 @@ class UriTest {
         assertEquals("file", uri.scheme)
         assertEquals("", uri.authority)
         assertEquals("test/image.jpg", uri.path)
-        assertEquals("test/image.jpg", uri.filePath)
+        assertEquals("test/image.jpg".toNativePath(), uri.filePath)
         assertEquals(listOf("test", "image.jpg"), uri.pathSegments)
         assertNull(uri.query)
         assertNull(uri.fragment)
@@ -125,7 +131,7 @@ class UriTest {
         assertEquals("https", uri.scheme)
         assertEquals("images.unsplash.com", uri.authority)
         assertEquals("/photo-1550939810-cb345b2f4ad7", uri.path)
-        assertEquals("/photo-1550939810-cb345b2f4ad7", uri.filePath)
+        assertEquals("/photo-1550939810-cb345b2f4ad7".toNativePath(), uri.filePath)
         assertEquals(listOf("photo-1550939810-cb345b2f4ad7"), uri.pathSegments)
         assertEquals("ixlib=rb-1.2.1&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1080&fit=max&ixid=eyJhcHBfaWQiOjU4MjM5fQ", uri.query)
         assertNull(uri.fragment)
@@ -138,7 +144,7 @@ class UriTest {
         assertEquals("https", uri.scheme)
         assertEquals("example.com", uri.authority)
         assertEquals("/上海+中國", uri.path)
-        assertEquals("/上海+中國", uri.filePath)
+        assertEquals("/上海+中國".toNativePath(), uri.filePath)
         assertEquals(listOf("上海+中國"), uri.pathSegments)
         assertNull(uri.query)
         assertNull(uri.fragment)
@@ -152,7 +158,7 @@ class UriTest {
         assertEquals("https", uri.scheme)
         assertEquals("example.com", uri.authority)
         assertEquals("/something ", uri.path)
-        assertEquals("/something ", uri.filePath)
+        assertEquals("/something ".toNativePath(), uri.filePath)
         assertEquals(listOf("something "), uri.pathSegments)
         assertNull(uri.query)
         assertNull(uri.fragment)
@@ -166,7 +172,7 @@ class UriTest {
         assertEquals("https", uri.scheme)
         assertEquals("example.com", uri.authority)
         assertEquals("/上海+中國%", uri.path)
-        assertEquals("/上海+中國%", uri.filePath)
+        assertEquals("/上海+中國%".toNativePath(), uri.filePath)
         assertEquals(listOf("上海+中國%"), uri.pathSegments)
         assertNull(uri.query)
         assertNull(uri.fragment)
@@ -179,7 +185,7 @@ class UriTest {
         assertEquals("file", uri.scheme)
         assertEquals("", uri.authority)
         assertEquals("/test///image.jpg", uri.path)
-        assertEquals("/test/image.jpg", uri.filePath)
+        assertEquals("/test/image.jpg".toNativePath(), uri.filePath)
         assertEquals(listOf("test", "image.jpg"), uri.pathSegments)
         assertNull(uri.query)
         assertNull(uri.fragment)
@@ -222,13 +228,65 @@ class UriTest {
     }
 
     @Test
+    fun windowsRootedPath() {
+        val uri = "\\images\\nested\\image.jpg".toUri(separator = "\\")
+        assertNull(uri.scheme)
+        assertNull(uri.authority)
+        assertEquals("/images/nested/image.jpg", uri.path)
+        assertEquals("\\images\\nested\\image.jpg", uri.filePath)
+        assertEquals(listOf("images", "nested", "image.jpg"), uri.pathSegments)
+    }
+
+    @Test
+    fun windowsUncPath() {
+        val uri = "\\\\server\\share\\nested\\image.jpg".toUri(separator = "\\")
+        assertNull(uri.scheme)
+        assertNull(uri.authority)
+        assertEquals("//server/share/nested/image.jpg", uri.path)
+        assertEquals("\\\\server\\share\\nested\\image.jpg", uri.filePath)
+        assertEquals(listOf("server", "share", "nested", "image.jpg"), uri.pathSegments)
+    }
+
+    @Test
+    fun windowsUncFileUri() {
+        val uri = "file://server/share/nested/image.jpg".toUri(separator = "\\")
+        assertEquals("file", uri.scheme)
+        assertEquals("server", uri.authority)
+        assertEquals("/share/nested/image.jpg", uri.path)
+        assertEquals("\\\\server\\share\\nested\\image.jpg", uri.filePath)
+        assertEquals(listOf("share", "nested", "image.jpg"), uri.pathSegments)
+    }
+
+    @Test
+    fun windowsLocalhostFileUriUsesLocalDrive() {
+        val uri = "file://localhost/C:/images/image.jpg".toUri(separator = "\\")
+        assertEquals("file", uri.scheme)
+        assertEquals("localhost", uri.authority)
+        assertEquals("/C:/images/image.jpg", uri.path)
+        assertEquals("C:\\images\\image.jpg", uri.filePath)
+        assertEquals(listOf("C:", "images", "image.jpg"), uri.pathSegments)
+    }
+
+    @Test
+    fun windowsFileUriDecodesNonAsciiPercentEncodingAndPound() {
+        val uri = "file:///C:/images/%E4%B8%8A%E6%B5%B7/fi%23le.jpg".toUri(separator = "\\")
+        assertEquals("file", uri.scheme)
+        assertEquals("", uri.authority)
+        assertEquals("/C:/images/上海/fi#le.jpg", uri.path)
+        assertEquals("C:\\images\\上海\\fi#le.jpg", uri.filePath)
+        assertEquals(listOf("C:", "images", "上海", "fi#le.jpg"), uri.pathSegments)
+        assertNull(uri.query)
+        assertNull(uri.fragment)
+    }
+
+    @Test
     fun multipleSchemeSegments() {
         // This format is used for Compose multiplatform resources on Android/JVM.
         val uri = "jar:file:/outer/path/test.apk!/internal/path/1.png".toUri()
         assertEquals("jar:file", uri.scheme)
         assertEquals("", uri.authority)
         assertEquals("/outer/path/test.apk!/internal/path/1.png", uri.path)
-        assertEquals("/outer/path/test.apk!/internal/path/1.png", uri.filePath)
+        assertEquals("/outer/path/test.apk!/internal/path/1.png".toNativePath(), uri.filePath)
         assertEquals(listOf("outer", "path", "test.apk!", "internal", "path", "1.png"), uri.pathSegments)
         assertNull(uri.query)
         assertNull(uri.fragment)
@@ -252,7 +310,7 @@ class UriTest {
         assertEquals("data", uri.scheme)
         assertEquals("", uri.authority)
         assertEquals("image/png;base64,FAKE_DATA", uri.path)
-        assertEquals("image/png;base64,FAKE_DATA", uri.filePath)
+        assertEquals("image/png;base64,FAKE_DATA".toNativePath(), uri.filePath)
         assertEquals(listOf("image", "png;base64,FAKE_DATA"), uri.pathSegments)
         assertNull(uri.query)
         assertNull(uri.fragment)
@@ -329,4 +387,8 @@ class UriTest {
         assertEquals(uri.separator, modifiedUri.separator)
         assertEquals("https://localhost/test?q=2", modifiedUri.toString())
     }
+}
+
+private fun String.toNativePath(): String {
+    return replace("/", Path.DIRECTORY_SEPARATOR)
 }

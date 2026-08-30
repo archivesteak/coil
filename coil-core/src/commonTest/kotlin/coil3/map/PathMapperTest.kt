@@ -8,6 +8,7 @@ import coil3.toUri
 import coil3.util.SCHEME_FILE
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import okio.Path
 import okio.Path.Companion.toPath
 
 class PathMapperTest : RobolectricTest() {
@@ -23,9 +24,9 @@ class PathMapperTest : RobolectricTest() {
     /** Regression test: https://github.com/coil-kt/coil/issues/1344 */
     @Test
     fun parsesPoundCharacterCorrectly() {
-        val path = "/sdcard/fi#le.jpg"
         val file = "/sdcard/fi#le.jpg".toPath()
-        assertEquals(path, mapper.map(file, Options(context)).filePath)
+        val expected = "${Path.DIRECTORY_SEPARATOR}sdcard${Path.DIRECTORY_SEPARATOR}fi#le.jpg"
+        assertEquals(expected, mapper.map(file, Options(context)).filePath)
     }
 
     /** Regression test: https://github.com/coil-kt/coil/issues/1513 */

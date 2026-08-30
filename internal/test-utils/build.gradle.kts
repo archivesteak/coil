@@ -8,7 +8,11 @@ plugins {
     id("dev.drewhamilton.poko")
 }
 
-addAllMultiplatformTargets(libs.versions.skiko)
+addAllMultiplatformTargets(
+    libs.versions.skiko,
+    skikoRuntimeDependency = libs.skiko,
+    enableNativeMingw = true,
+)
 multiplatformAndroidLibrary(name = "coil3.test.utils") {
     androidResources {
         enable = true

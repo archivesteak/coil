@@ -1,6 +1,7 @@
 package coil3.disk
 
 import coil3.util.defaultFileSystem
+import coil3.util.diskCacheSize
 import coil3.util.remainingFreeSpaceBytes
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
@@ -192,8 +193,12 @@ interface DiskCache {
             val directory = checkNotNull(directory) { "directory == null" }
             val maxSize = if (maxSizePercent > 0) {
                 try {
-                    val size = maxSizePercent * fileSystem.remainingFreeSpaceBytes(directory)
-                    size.toLong().coerceIn(minimumMaxSizeBytes, maximumMaxSizeBytes)
+                    diskCacheSize(
+                        remainingFreeSpaceBytes = fileSystem.remainingFreeSpaceBytes(directory),
+                        percent = maxSizePercent,
+                        minimumBytes = minimumMaxSizeBytes,
+                        maximumBytes = maximumMaxSizeBytes,
+                    )
                 } catch (_: Exception) {
                     minimumMaxSizeBytes
                 }

@@ -5,6 +5,7 @@ import coil3.PlatformContext
 import coil3.annotation.ExperimentalCoilApi
 import coil3.key.Keyer
 import coil3.util.defaultMemoryCacheSizePercent
+import coil3.util.percentageOfBytes
 import coil3.util.toImmutableMap
 import coil3.util.totalAvailableMemoryBytes
 import kotlin.jvm.JvmOverloads
@@ -145,7 +146,9 @@ interface MemoryCache {
             percent: Double = context.defaultMemoryCacheSizePercent(),
         ) = apply {
             require(percent in 0.0..1.0) { "percent must be in the range [0.0, 1.0]." }
-            this.maxSizeBytesFactory = { (percent * context.totalAvailableMemoryBytes()).toLong() }
+            this.maxSizeBytesFactory = {
+                percentageOfBytes(context.totalAvailableMemoryBytes(), percent)
+            }
         }
 
         /**

@@ -7,6 +7,9 @@ import java.io.File
 
 class FileMapper : Mapper<File, Uri> {
     override fun map(data: File, options: Options): Uri {
-        return Uri(scheme = SCHEME_FILE, path = data.path)
+        return Uri(
+            scheme = SCHEME_FILE,
+            path = data.path.replace(File.separatorChar, '/'),
+        )
     }
 }

@@ -43,24 +43,30 @@ class VerifySkikoVersionsPlugin : Plugin<Project> {
         ) {
             group = "verification"
             description = "Ensures this fork cannot publish to a remote Maven repository or sign."
-            forbiddenTaskPaths.set(target.provider {
-                target.allprojects.flatMap { project ->
-                    project.tasks.names
-                        .filter { name ->
-                            name.contains("MavenCentral", ignoreCase = true) ||
-                                (name.startsWith("sign") && name.contains("Publication"))
-                        }
-                        .map { name -> "${project.path}:$name" }
-                }.sorted()
-            })
-            remotePublishingRepositories.set(target.provider {
-                target.allprojects.flatMap { project ->
-                    project.extensions.findByType(PublishingExtension::class.java)
-                        ?.repositories
-                        ?.map { repository -> "${project.path}:${repository.name}" }
-                        .orEmpty()
-                }.sorted()
-            })
+            remotePublicationEnabled.set(
+                target.providers.gradleProperty(remotePublicationProperty)
+                    .map { value -> value.toBooleanStrict() }
+                    .orElse(false),
+            )
+            enabledRemoteTaskPaths.set(
+                target.provider {
+                    target.allprojects.flatMap { project ->
+                        project.tasks
+                            .filter { task -> task.enabled && task.isRemotePublicationTask() }
+                            .map { task -> task.path }
+                    }.sorted()
+                },
+            )
+            remotePublishingRepositories.set(
+                target.provider {
+                    target.allprojects.flatMap { project ->
+                        project.extensions.findByType(PublishingExtension::class.java)
+                            ?.repositories
+                            ?.map { repository -> "${project.path}:${repository.name}" }
+                            .orEmpty()
+                    }.sorted()
+                },
+            )
         }
 
         // Attach verification only to the root `check` task.

@@ -172,10 +172,31 @@ val Uri.filePath: String?
         val pathSegments = pathSegments
         if (pathSegments.isEmpty()) {
             return null
-        } else {
-            val prefix = if (path!!.startsWith(separator)) separator else ""
-            return pathSegments.joinToString(prefix = prefix, separator = separator)
         }
+
+        if (separator == WINDOWS_PATH_SEPARATOR) {
+            val authority = authority
+            if (scheme.equals(FILE_SCHEME, ignoreCase = true) &&
+                !authority.isNullOrEmpty() &&
+                !authority.equals(LOCALHOST, ignoreCase = true)
+            ) {
+                return pathSegments.joinToString(
+                    prefix = "$WINDOWS_UNC_PREFIX$authority$WINDOWS_PATH_SEPARATOR",
+                    separator = WINDOWS_PATH_SEPARATOR,
+                )
+            }
+
+            val firstSegmentIsDrive = pathSegments.first().isWindowsDriveLetter()
+            val prefix = when {
+                path!!.startsWith("//") -> WINDOWS_UNC_PREFIX
+                path.startsWith('/') && !firstSegmentIsDrive -> WINDOWS_PATH_SEPARATOR
+                else -> ""
+            }
+            return pathSegments.joinToString(prefix = prefix, separator = WINDOWS_PATH_SEPARATOR)
+        }
+
+        val prefix = if (path!!.startsWith(separator)) separator else ""
+        return pathSegments.joinToString(prefix = prefix, separator = separator)
     }
 
 /**
@@ -351,3 +372,12 @@ private fun String.percentDecode(bytes: ByteArray): String {
 
 private val String?.length: Int
     get() = this?.length ?: 0
+
+private fun String.isWindowsDriveLetter(): Boolean {
+    return length == 2 && this[0].isLetter() && this[1] == ':'
+}
+
+private const val FILE_SCHEME = "file"
+private const val LOCALHOST = "localhost"
+private const val WINDOWS_PATH_SEPARATOR = "\\"
+private const val WINDOWS_UNC_PREFIX = "\\\\"

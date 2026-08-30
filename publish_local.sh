@@ -1,8 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Regenerate the baseline profile.
-./gradlew generateBaselineProfile
-
-# Build and install the artifacts locally to 'mavenLocal'.
-./gradlew publishToMavenLocal
+# Build and install only the dependency-closed MinGW producer set to mavenLocal.
+./gradlew publishMingwClosureToMavenLocal
