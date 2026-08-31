@@ -1,11 +1,18 @@
 package coil3
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
 
 abstract class VerifyLocalPublicationScopeTask : DefaultTask() {
+
+    @get:Input
+    abstract val expectedOwner: Property<String>
+
+    @get:Input
+    abstract val requestedOwner: Property<String>
 
     @get:Input
     abstract val expectedTaskPaths: SetProperty<String>
@@ -18,15 +25,23 @@ abstract class VerifyLocalPublicationScopeTask : DefaultTask() {
 
     @TaskAction
     fun verify() {
+        check(requestedOwner.get() == expectedOwner.get()) {
+            "Expected -P$localPublicationOwnerProperty=${expectedOwner.get()}, " +
+                "but received '${requestedOwner.get()}'."
+        }
         val expected = expectedTaskPaths.get()
         check(enabledTaskPaths.get() == expected) {
-            "Enabled local Maven publication tasks differ from the MinGW closure. " +
+            "Enabled local Maven publication tasks differ from the ${expectedOwner.get()} closure. " +
                 "expected=${expected.sorted()}, actual=${enabledTaskPaths.get().sorted()}"
         }
         check(aggregateTaskPaths.get() == expected) {
-            "The MinGW local publication aggregate has the wrong task set. " +
+            "The ${expectedOwner.get()} local publication aggregate has the wrong task set. " +
                 "expected=${expected.sorted()}, actual=${aggregateTaskPaths.get().sorted()}"
         }
-        logger.lifecycle("Verified {} MinGW-closure local publication tasks.", expected.size)
+        logger.lifecycle(
+            "Verified {} {}-closure local publication tasks.",
+            expected.size,
+            expectedOwner.get(),
+        )
     }
 }

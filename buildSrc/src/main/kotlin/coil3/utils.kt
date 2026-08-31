@@ -22,8 +22,8 @@ val publicModules = setOf(
     "coil-test",
 )
 
-/** The complete project closure intentionally ported and tested for the mingwX64 fork. */
-val mingwClosureModules = setOf(
+/** The complete public dependency closure carried by this fork. */
+val forkClosureModules = setOf(
     "coil",
     "coil-core",
     "coil-compose",
@@ -32,11 +32,45 @@ val mingwClosureModules = setOf(
     "coil-network-ktor3",
 )
 
-val mingwClosureLocalPublicationTaskPaths = mingwClosureModules.flatMapTo(sortedSetOf()) { module ->
-    listOf(
-        ":$module:publishKotlinMultiplatformPublicationToMavenLocal",
-        ":$module:publishMingwX64PublicationToMavenLocal",
-    )
+const val localPublicationOwnerProperty = "coil.localPublication.owner"
+
+val localPublicationTaskPathsByOwner: Map<String, Set<String>> = mapOf(
+    "windows" to publicationTaskPaths(
+        modules = forkClosureModules,
+        publications = setOf("KotlinMultiplatform", "Jvm", "MingwX64"),
+    ),
+    "apple" to publicationTaskPaths(
+        modules = forkClosureModules,
+        publications = setOf(
+            "KotlinMultiplatform",
+            "IosArm64",
+            "IosSimulatorArm64",
+            "MacosArm64",
+        ),
+    ),
+    "web" to buildSet {
+        addAll(
+            publicationTaskPaths(
+                modules = forkClosureModules,
+                publications = setOf("KotlinMultiplatform", "Android", "Js", "WasmJs"),
+            ),
+        )
+        addAll(
+            publicationTaskPaths(
+                modules = forkClosureModules - setOf("coil-compose", "coil-compose-core"),
+                publications = setOf("LinuxArm64", "LinuxX64"),
+            ),
+        )
+    },
+)
+
+private fun publicationTaskPaths(
+    modules: Set<String>,
+    publications: Set<String>,
+): Set<String> = modules.flatMapTo(sortedSetOf()) { module ->
+    publications.map { publication ->
+        ":$module:publish${publication}PublicationToMavenLocal"
+    }
 }
 
 const val remotePublicationProperty = "coil.remotePublication.enabled"

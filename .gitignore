@@ -16,6 +16,10 @@ build
 # Kotlin
 .kotlin
 
+# Python release-gate helpers
+__pycache__/
+*.py[cod]
+
 # Docs
 docs/api
 docs/sample

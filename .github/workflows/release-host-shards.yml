@@ -1,0 +1,771 @@
+name: Build and union Coil host shards
+
+on:
+  workflow_call:
+    inputs:
+      coil_ref:
+        description: Full Coil source commit SHA to build (source commit A)
+        required: true
+        type: string
+      coil_contract_ref:
+        description: Full Coil workflow and requirements commit SHA (contract commit B)
+        required: true
+        type: string
+      resources_repository:
+        description: Exact owner/repository containing validated-resources-maven
+        required: true
+        type: string
+      resources_ref:
+        description: Full compose-multiplatform resources source commit SHA
+        required: true
+        type: string
+      resources_contract_ref:
+        description: Full compose-multiplatform workflow and requirements commit SHA
+        required: true
+        type: string
+      resources_run_id:
+        description: Successful workflow run containing validated-resources-maven
+        required: true
+        type: string
+      core_repository:
+        description: Exact owner/repository containing the canonical merger and verifiers
+        required: true
+        type: string
+      core_contract_ref:
+        description: Full compose-multiplatform-core contract commit SHA
+        required: true
+        type: string
+    secrets:
+      ARTIFACTS_READ_TOKEN:
+        description: Read-only token with contents:read and actions:read on upstream repositories
+        required: true
+  workflow_dispatch:
+    inputs:
+      coil_ref:
+        description: Full Coil source commit SHA to build (source commit A)
+        required: true
+        type: string
+      coil_contract_ref:
+        description: Full Coil workflow and requirements commit SHA (contract commit B)
+        required: true
+        type: string
+      resources_repository:
+        description: Exact owner/repository containing validated-resources-maven
+        required: true
+        type: string
+        default: archivesteak/compose-multiplatform
+      resources_ref:
+        description: Full compose-multiplatform resources source commit SHA
+        required: true
+        type: string
+      resources_contract_ref:
+        description: Full compose-multiplatform workflow and requirements commit SHA
+        required: true
+        type: string
+      resources_run_id:
+        description: Successful workflow run containing validated-resources-maven
+        required: true
+        type: string
+      core_repository:
+        description: Exact owner/repository containing the canonical merger and verifiers
+        required: true
+        type: string
+        default: archivesteak/compose-multiplatform-core
+      core_contract_ref:
+        description: Full compose-multiplatform-core contract commit SHA
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  CI: true
+  JAVA_VERSION: "21"
+  ORG_GRADLE_IDE_DOWNLOADJAVADOC: false
+  ORG_GRADLE_IDE_DOWNLOADSOURCES: false
+
+jobs:
+  validate-contract:
+    name: Validate immutable release contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact Coil orchestration contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.coil_contract_ref }}
+          path: orchestration
+          persist-credentials: false
+
+      - name: Require a read-only cross-repository token
+        shell: bash
+        env:
+          ARTIFACTS_TOKEN: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+        run: |
+          if [ -z "$ARTIFACTS_TOKEN" ]; then
+            echo "A read-only token with contents:read and actions:read is required."
+            exit 1
+          fi
+
+      - name: Check out exact Coil source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.coil_ref }}
+          path: coil-source
+          persist-credentials: false
+
+      - name: Check out exact resources contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.resources_repository }}
+          ref: ${{ inputs.resources_contract_ref }}
+          path: resources-contract
+          persist-credentials: false
+          token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+
+      - name: Check out exact core contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.core_repository }}
+          ref: ${{ inputs.core_contract_ref }}
+          path: core-contract
+          persist-credentials: false
+          token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+
+      - name: Validate immutable inputs and checked-out revisions
+        shell: bash
+        env:
+          COIL_REF: ${{ inputs.coil_ref }}
+          COIL_CONTRACT_REF: ${{ inputs.coil_contract_ref }}
+          RESOURCES_REPOSITORY: ${{ inputs.resources_repository }}
+          RESOURCES_REF: ${{ inputs.resources_ref }}
+          RESOURCES_CONTRACT_REF: ${{ inputs.resources_contract_ref }}
+          RESOURCES_RUN_ID: ${{ inputs.resources_run_id }}
+          CORE_REPOSITORY: ${{ inputs.core_repository }}
+          CORE_CONTRACT_REF: ${{ inputs.core_contract_ref }}
+        run: |
+          for declaration in \
+            "coil_ref=$COIL_REF" \
+            "coil_contract_ref=$COIL_CONTRACT_REF" \
+            "resources_ref=$RESOURCES_REF" \
+            "resources_contract_ref=$RESOURCES_CONTRACT_REF" \
+            "core_contract_ref=$CORE_CONTRACT_REF"; do
+            name=${declaration%%=*}
+            value=${declaration#*=}
+            if [[ ! "$value" =~ ^[0-9a-f]{40}$ ]] || [[ "$value" =~ ^0+$ ]]; then
+              echo "$name must be a nonzero full lowercase 40-character commit SHA"
+              exit 1
+            fi
+          done
+          for declaration in \
+            "resources_repository=$RESOURCES_REPOSITORY" \
+            "core_repository=$CORE_REPOSITORY"; do
+            name=${declaration%%=*}
+            value=${declaration#*=}
+            if [[ ! "$value" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+              echo "$name must be exactly owner/repository"
+              exit 1
+            fi
+          done
+          if [[ ! "$RESOURCES_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "resources_run_id must be a positive numeric workflow run ID"
+            exit 1
+          fi
+          if [ "$GITHUB_SHA" != "$COIL_CONTRACT_REF" ]; then
+            echo "workflow head is $GITHUB_SHA, expected coil_contract_ref=$COIL_CONTRACT_REF"
+            exit 1
+          fi
+          for checkout in \
+            "orchestration|$COIL_CONTRACT_REF" \
+            "coil-source|$COIL_REF" \
+            "resources-contract|$RESOURCES_CONTRACT_REF" \
+            "core-contract|$CORE_CONTRACT_REF"; do
+            directory=${checkout%%|*}
+            expected=${checkout#*|}
+            resolved=$(git -C "$directory" rev-parse HEAD)
+            if [ "$resolved" != "$expected" ]; then
+              echo "$directory resolved to $resolved, expected $expected"
+              exit 1
+            fi
+            if [ -n "$(git -C "$directory" status --porcelain=v1 --untracked-files=all)" ]; then
+              echo "$directory checkout is not clean"
+              exit 1
+            fi
+          done
+
+      - name: Validate successful upstream resources run and artifact identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+          RESOURCES_REPOSITORY: ${{ inputs.resources_repository }}
+          RESOURCES_CONTRACT_REF: ${{ inputs.resources_contract_ref }}
+          RESOURCES_RUN_ID: ${{ inputs.resources_run_id }}
+        run: |
+          payload=$(gh api "repos/$RESOURCES_REPOSITORY/actions/runs/$RESOURCES_RUN_ID")
+          conclusion=$(jq -r .conclusion <<<"$payload")
+          repository=$(jq -r .head_repository.full_name <<<"$payload")
+          head_sha=$(jq -r .head_sha <<<"$payload")
+          event=$(jq -r .event <<<"$payload")
+          workflow_path_with_ref=$(jq -r .path <<<"$payload")
+          workflow_path=${workflow_path_with_ref%%@*}
+          if [ "$conclusion" != success ] || \
+             [ "$repository" != "$RESOURCES_REPOSITORY" ] || \
+             [ "$head_sha" != "$RESOURCES_CONTRACT_REF" ] || \
+             [ "$event" != workflow_dispatch ] || \
+             [ "$workflow_path" != .github/workflows/publish-resources.yml ]; then
+            echo "resources run $RESOURCES_RUN_ID does not match the exact successful producer contract"
+            jq '{conclusion, event, head_sha, path, repository: .head_repository.full_name}' \
+              <<<"$payload"
+            exit 1
+          fi
+          artifacts=$(gh api \
+            "repos/$RESOURCES_REPOSITORY/actions/runs/$RESOURCES_RUN_ID/artifacts?per_page=100")
+          count=$(jq '[.artifacts[] | select(.name == "validated-resources-maven" and .expired == false)] | length' \
+            <<<"$artifacts")
+          if [ "$count" -ne 1 ]; then
+            echo "expected exactly one unexpired validated-resources-maven artifact, found $count"
+            exit 1
+          fi
+
+      - name: Download exact validated resources repository
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: validated-resources-maven
+          path: ${{ runner.temp }}/validated-resources
+          repository: ${{ inputs.resources_repository }}
+          run-id: ${{ inputs.resources_run_id }}
+          github-token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+
+      - name: Self-test and validate the complete upstream provenance chain
+        shell: bash
+        env:
+          COIL_REF: ${{ inputs.coil_ref }}
+          RESOURCES_REF: ${{ inputs.resources_ref }}
+        run: |
+          test -d "$RUNNER_TEMP/validated-resources/repository"
+          test -s "$RUNNER_TEMP/validated-resources/core-merge-report.json"
+          test -s "$RUNNER_TEMP/validated-resources/resources-merge-report.json"
+          test -s "$RUNNER_TEMP/validated-resources/plugin-provenance.json"
+          if find "$RUNNER_TEMP/validated-resources" -type l -print -quit | grep -q .; then
+            echo "validated-resources-maven must not contain symlinks"
+            exit 1
+          fi
+          python3 -m unittest discover \
+            -s orchestration/.github/scripts \
+            -p 'test_prepare_coil_shard.py'
+          python3 -m unittest discover \
+            -s core-contract/scripts \
+            -p 'test_merge_maven_artifact.py'
+          python3 orchestration/.github/scripts/prepare_coil_shard.py \
+            --validate-only \
+            --source-repository "$RUNNER_TEMP/validated-resources/repository" \
+            --requirements orchestration/.github/coil-maven-variant-requirements.json \
+            --coil-ref "$COIL_REF" \
+            --resources-ref "$RESOURCES_REF" \
+            --core-report "$RUNNER_TEMP/validated-resources/core-merge-report.json" \
+            --core-requirements core-contract/scripts/maven-variant-requirements.json \
+            --resources-report "$RUNNER_TEMP/validated-resources/resources-merge-report.json" \
+            --resources-requirements \
+              resources-contract/.github/resources-maven-variant-requirements.json \
+            --plugin-report "$RUNNER_TEMP/validated-resources/plugin-provenance.json"
+
+  publish-host-shards:
+    name: Test and publish ${{ matrix.owner }} shard
+    needs: validate-contract
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - owner: windows
+            os: windows-2022
+            python: python
+            publish_task: publishWindowsClosureToMavenLocal
+            test_tasks: >-
+              :coil:jvmTest
+              :coil-core:jvmTest
+              :coil-compose:jvmTest
+              :coil-compose-core:jvmTest
+              :coil-network-core:jvmTest
+              :coil-network-ktor3:jvmTest
+              :coil:mingwX64Test
+              :coil-core:mingwX64Test
+              :coil-compose:mingwX64Test
+              :coil-compose-core:mingwX64Test
+              :coil-network-core:mingwX64Test
+              :coil-network-ktor3:mingwX64Test
+            verify_targets: >-
+              --target jvm=.jar
+              --target mingwX64=.klib
+          - owner: apple
+            os: macos-26
+            python: python3
+            publish_task: publishAppleClosureToMavenLocal
+            test_tasks: >-
+              :coil:macosArm64Test
+              :coil-core:macosArm64Test
+              :coil-compose:macosArm64Test
+              :coil-compose-core:macosArm64Test
+              :coil-network-core:macosArm64Test
+              :coil-network-ktor3:macosArm64Test
+              :coil:iosSimulatorArm64Test
+              :coil-core:iosSimulatorArm64Test
+              :coil-compose:iosSimulatorArm64Test
+              :coil-compose-core:iosSimulatorArm64Test
+              :coil-network-core:iosSimulatorArm64Test
+              :coil-network-ktor3:iosSimulatorArm64Test
+              :coil:linkDebugTestIosArm64
+              :coil-core:linkDebugTestIosArm64
+              :coil-compose:linkDebugTestIosArm64
+              :coil-compose-core:linkDebugTestIosArm64
+              :coil-network-core:linkDebugTestIosArm64
+              :coil-network-ktor3:linkDebugTestIosArm64
+            verify_targets: >-
+              --target macosArm64=.klib
+              --target iosArm64=.klib
+              --target iosSimulatorArm64=.klib
+          - owner: web
+            os: ubuntu-24.04
+            python: python3
+            publish_task: publishWebClosureToMavenLocal
+            test_tasks: >-
+              :coil:testAndroidHostTest
+              :coil-core:testAndroidHostTest
+              :coil-compose:testAndroidHostTest
+              :coil-compose-core:testAndroidHostTest
+              :coil-network-core:testAndroidHostTest
+              :coil-network-ktor3:testAndroidHostTest
+              :coil:jsBrowserTest
+              :coil-core:jsBrowserTest
+              :coil-compose:jsBrowserTest
+              :coil-compose-core:jsBrowserTest
+              :coil-network-core:jsBrowserTest
+              :coil-network-ktor3:jsBrowserTest
+              :coil:wasmJsBrowserTest
+              :coil-core:wasmJsBrowserTest
+              :coil-compose:wasmJsBrowserTest
+              :coil-compose-core:wasmJsBrowserTest
+              :coil-network-core:wasmJsBrowserTest
+              :coil-network-ktor3:wasmJsBrowserTest
+              :coil:linuxX64Test
+              :coil-core:linuxX64Test
+              :coil-network-core:linuxX64Test
+              :coil-network-ktor3:linuxX64Test
+              :coil:linkDebugTestLinuxArm64
+              :coil-core:linkDebugTestLinuxArm64
+              :coil-network-core:linkDebugTestLinuxArm64
+              :coil-network-ktor3:linkDebugTestLinuxArm64
+            verify_targets: >-
+              --target android=.aar
+              --target js=.klib
+              --target wasmJs=.klib
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    steps:
+      - name: Check out exact Coil orchestration contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.coil_contract_ref }}
+          path: orchestration
+          persist-credentials: false
+
+      - name: Check out exact Coil source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.coil_ref }}
+          path: coil-source
+          persist-credentials: false
+
+      - name: Check out exact resources contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.resources_repository }}
+          ref: ${{ inputs.resources_contract_ref }}
+          path: resources-contract
+          persist-credentials: false
+          token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+
+      - name: Check out exact core contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.core_repository }}
+          ref: ${{ inputs.core_contract_ref }}
+          path: core-contract
+          persist-credentials: false
+          token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+
+      - name: Download exact validated resources repository
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: validated-resources-maven
+          path: ${{ runner.temp }}/validated-resources
+          repository: ${{ inputs.resources_repository }}
+          run-id: ${{ inputs.resources_run_id }}
+          github-token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-read-only: true
+
+      - name: Revalidate exact checkouts and upstream provenance
+        shell: bash
+        env:
+          COIL_REF: ${{ inputs.coil_ref }}
+          COIL_CONTRACT_REF: ${{ inputs.coil_contract_ref }}
+          RESOURCES_REF: ${{ inputs.resources_ref }}
+          RESOURCES_CONTRACT_REF: ${{ inputs.resources_contract_ref }}
+          CORE_CONTRACT_REF: ${{ inputs.core_contract_ref }}
+          PYTHON: ${{ matrix.python }}
+        run: |
+          if [ "$GITHUB_SHA" != "$COIL_CONTRACT_REF" ]; then
+            echo "workflow head is $GITHUB_SHA, expected coil_contract_ref=$COIL_CONTRACT_REF"
+            exit 1
+          fi
+          for checkout in \
+            "orchestration|$COIL_CONTRACT_REF" \
+            "coil-source|$COIL_REF" \
+            "resources-contract|$RESOURCES_CONTRACT_REF" \
+            "core-contract|$CORE_CONTRACT_REF"; do
+            directory=${checkout%%|*}
+            expected=${checkout#*|}
+            resolved=$(git -C "$directory" rev-parse HEAD)
+            if [ "$resolved" != "$expected" ]; then
+              echo "$directory resolved to $resolved, expected $expected"
+              exit 1
+            fi
+            if [ -n "$(git -C "$directory" status --porcelain=v1 --untracked-files=all)" ]; then
+              echo "$directory checkout is not clean"
+              exit 1
+            fi
+          done
+          "$PYTHON" orchestration/.github/scripts/prepare_coil_shard.py \
+            --validate-only \
+            --source-repository "$RUNNER_TEMP/validated-resources/repository" \
+            --requirements orchestration/.github/coil-maven-variant-requirements.json \
+            --coil-ref "$COIL_REF" \
+            --resources-ref "$RESOURCES_REF" \
+            --core-report "$RUNNER_TEMP/validated-resources/core-merge-report.json" \
+            --core-requirements core-contract/scripts/maven-variant-requirements.json \
+            --resources-report "$RUNNER_TEMP/validated-resources/resources-merge-report.json" \
+            --resources-requirements \
+              resources-contract/.github/resources-maven-variant-requirements.json \
+            --plugin-report "$RUNNER_TEMP/validated-resources/plugin-provenance.json"
+
+      - name: Point Android builds at the runner SDK
+        shell: bash
+        run: |
+          sdk=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
+          if [ -z "$sdk" ]; then
+            echo "The runner provides no Android SDK path."
+            exit 1
+          fi
+          printf 'sdk.dir=%s\n' "${sdk//\\//}" > coil-source/local.properties
+
+      - name: Run the exact host test closure
+        shell: bash
+        working-directory: coil-source
+        env:
+          TEST_TASKS: ${{ matrix.test_tasks }}
+        run: |
+          read -r -a tasks <<<"$TEST_TASKS"
+          arguments=(
+            "-Dmaven.repo.local=$RUNNER_TEMP/validated-resources/repository"
+            --no-daemon
+            --stacktrace
+            --console=plain
+            -Pcoil.remotePublication.enabled=false
+          )
+          if [ "$RUNNER_OS" = Windows ]; then
+            ./gradlew.bat "${arguments[@]}" "${tasks[@]}"
+          else
+            ./gradlew "${arguments[@]}" "${tasks[@]}"
+          fi
+
+      - name: Publish only the exact host-owned closure
+        shell: bash
+        working-directory: coil-source
+        env:
+          OWNER: ${{ matrix.owner }}
+          PUBLISH_TASK: ${{ matrix.publish_task }}
+        run: |
+          arguments=(
+            "-Dmaven.repo.local=$RUNNER_TEMP/validated-resources/repository"
+            --no-daemon
+            --stacktrace
+            --console=plain
+            -Pcoil.remotePublication.enabled=false
+            "-Pcoil.localPublication.owner=$OWNER"
+            "$PUBLISH_TASK"
+          )
+          if [ "$RUNNER_OS" = Windows ]; then
+            ./gradlew.bat "${arguments[@]}"
+          else
+            ./gradlew "${arguments[@]}"
+          fi
+
+      - name: Extract and verify the exact group-only host shard
+        shell: bash
+        env:
+          OWNER: ${{ matrix.owner }}
+          COIL_REF: ${{ inputs.coil_ref }}
+          RESOURCES_REF: ${{ inputs.resources_ref }}
+          PYTHON: ${{ matrix.python }}
+          VERIFY_TARGETS: ${{ matrix.verify_targets }}
+        run: |
+          if [ -n "$(git -C coil-source status --porcelain=v1 --untracked-files=all)" ]; then
+            echo "Coil source changed during the producer build"
+            git -C coil-source status --short
+            exit 1
+          fi
+          "$PYTHON" orchestration/.github/scripts/prepare_coil_shard.py \
+            --owner "$OWNER" \
+            --source-repository "$RUNNER_TEMP/validated-resources/repository" \
+            --destination staging/repository \
+            --requirements orchestration/.github/coil-maven-variant-requirements.json \
+            --coil-ref "$COIL_REF" \
+            --resources-ref "$RESOURCES_REF" \
+            --core-report "$RUNNER_TEMP/validated-resources/core-merge-report.json" \
+            --core-requirements core-contract/scripts/maven-variant-requirements.json \
+            --resources-report "$RUNNER_TEMP/validated-resources/resources-merge-report.json" \
+            --resources-requirements \
+              resources-contract/.github/resources-maven-variant-requirements.json \
+            --plugin-report "$RUNNER_TEMP/validated-resources/plugin-provenance.json"
+          read -r -a targets <<<"$VERIFY_TARGETS"
+          "$PYTHON" core-contract/.github/scripts/verify-maven-kmp-publications.py \
+            staging/repository \
+            --coordinate io.github.archivesteak.coil3:coil:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-core:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-compose:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-compose-core:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-network-core:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-network-ktor3:3.6.0-mingw \
+            "${targets[@]}"
+          if [ "$OWNER" = web ]; then
+            "$PYTHON" core-contract/.github/scripts/verify-maven-kmp-publications.py \
+              staging/repository \
+              --coordinate io.github.archivesteak.coil3:coil:3.6.0-mingw \
+              --coordinate io.github.archivesteak.coil3:coil-core:3.6.0-mingw \
+              --coordinate io.github.archivesteak.coil3:coil-network-core:3.6.0-mingw \
+              --coordinate io.github.archivesteak.coil3:coil-network-ktor3:3.6.0-mingw \
+              --target linuxX64=.klib \
+              --target linuxArm64=.klib
+          fi
+
+      - name: Upload exact Coil host shard
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: maven-coil-${{ matrix.owner }}
+          path: staging/repository
+          if-no-files-found: error
+          retention-days: 2
+
+  union-coil:
+    name: Strictly union and validate Coil
+    needs:
+      - validate-contract
+      - publish-host-shards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact Coil orchestration contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.coil_contract_ref }}
+          path: orchestration
+          persist-credentials: false
+
+      - name: Check out exact resources contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.resources_repository }}
+          ref: ${{ inputs.resources_contract_ref }}
+          path: resources-contract
+          persist-credentials: false
+          token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+
+      - name: Check out exact core contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.core_repository }}
+          ref: ${{ inputs.core_contract_ref }}
+          path: core-contract
+          persist-credentials: false
+          token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+
+      - name: Download exact validated resources repository
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: validated-resources-maven
+          path: validated-resources
+          repository: ${{ inputs.resources_repository }}
+          run-id: ${{ inputs.resources_run_id }}
+          github-token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
+
+      - name: Download Windows Coil shard
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: maven-coil-windows
+          path: coil-shards/windows
+
+      - name: Download Apple Coil shard
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: maven-coil-apple
+          path: coil-shards/apple
+
+      - name: Download web Coil shard
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: maven-coil-web
+          path: coil-shards/web
+
+      - name: Strictly merge Coil atop the immutable resources repository
+        shell: bash
+        env:
+          COIL_REF: ${{ inputs.coil_ref }}
+          COIL_CONTRACT_REF: ${{ inputs.coil_contract_ref }}
+          RESOURCES_REF: ${{ inputs.resources_ref }}
+          RESOURCES_CONTRACT_REF: ${{ inputs.resources_contract_ref }}
+          CORE_CONTRACT_REF: ${{ inputs.core_contract_ref }}
+        run: |
+          if [ "$GITHUB_SHA" != "$COIL_CONTRACT_REF" ]; then
+            echo "workflow head is $GITHUB_SHA, expected coil_contract_ref=$COIL_CONTRACT_REF"
+            exit 1
+          fi
+          for checkout in \
+            "orchestration|$COIL_CONTRACT_REF" \
+            "resources-contract|$RESOURCES_CONTRACT_REF" \
+            "core-contract|$CORE_CONTRACT_REF"; do
+            directory=${checkout%%|*}
+            expected=${checkout#*|}
+            resolved=$(git -C "$directory" rev-parse HEAD)
+            if [ "$resolved" != "$expected" ]; then
+              echo "$directory resolved to $resolved, expected $expected"
+              exit 1
+            fi
+            if [ -n "$(git -C "$directory" status --porcelain=v1 --untracked-files=all)" ]; then
+              echo "$directory checkout is not clean"
+              exit 1
+            fi
+          done
+          python3 orchestration/.github/scripts/prepare_coil_shard.py \
+            --validate-only \
+            --source-repository validated-resources/repository \
+            --requirements orchestration/.github/coil-maven-variant-requirements.json \
+            --coil-ref "$COIL_REF" \
+            --resources-ref "$RESOURCES_REF" \
+            --core-report validated-resources/core-merge-report.json \
+            --core-requirements core-contract/scripts/maven-variant-requirements.json \
+            --resources-report validated-resources/resources-merge-report.json \
+            --resources-requirements \
+              resources-contract/.github/resources-maven-variant-requirements.json \
+            --plugin-report validated-resources/plugin-provenance.json
+          mkdir -p "$RUNNER_TEMP/validated-coil"
+          cp -a validated-resources/repository "$RUNNER_TEMP/validated-coil/repository"
+          cp validated-resources/core-merge-report.json \
+            "$RUNNER_TEMP/validated-coil/core-merge-report.json"
+          cp validated-resources/resources-merge-report.json \
+            "$RUNNER_TEMP/validated-coil/resources-merge-report.json"
+          cp validated-resources/plugin-provenance.json \
+            "$RUNNER_TEMP/validated-coil/plugin-provenance.json"
+          python3 core-contract/scripts/merge-maven-artifact.py \
+            --windows coil-shards/windows \
+            --apple coil-shards/apple \
+            --web coil-shards/web \
+            --destination "$RUNNER_TEMP/validated-coil/repository" \
+            --requirements orchestration/.github/coil-maven-variant-requirements.json \
+            --dry-run \
+            --report "$RUNNER_TEMP/coil-merge-dry-run-report.json"
+          python3 core-contract/scripts/merge-maven-artifact.py \
+            --windows coil-shards/windows \
+            --apple coil-shards/apple \
+            --web coil-shards/web \
+            --destination "$RUNNER_TEMP/validated-coil/repository" \
+            --requirements orchestration/.github/coil-maven-variant-requirements.json \
+            --report "$RUNNER_TEMP/validated-coil/coil-merge-report.json"
+
+      - name: Verify every Coil target artifact and redirect
+        shell: bash
+        run: |
+          repository="$RUNNER_TEMP/validated-coil/repository"
+          python3 core-contract/.github/scripts/verify-maven-kmp-publications.py \
+            "$repository" \
+            --coordinate io.github.archivesteak.coil3:coil:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-core:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-compose:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-compose-core:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-network-core:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-network-ktor3:3.6.0-mingw \
+            --target jvm=.jar \
+            --target mingwX64=.klib \
+            --target macosArm64=.klib \
+            --target iosArm64=.klib \
+            --target iosSimulatorArm64=.klib \
+            --target android=.aar \
+            --target js=.klib \
+            --target wasmJs=.klib
+          python3 core-contract/.github/scripts/verify-maven-kmp-publications.py \
+            "$repository" \
+            --coordinate io.github.archivesteak.coil3:coil:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-core:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-network-core:3.6.0-mingw \
+            --coordinate io.github.archivesteak.coil3:coil-network-ktor3:3.6.0-mingw \
+            --target linuxX64=.klib \
+            --target linuxArm64=.klib
+
+      - name: Verify exact fork dependency lineage
+        shell: bash
+        run: |
+          repository="$RUNNER_TEMP/validated-coil/repository"
+          verifier=core-contract/.github/scripts/verify-maven-dependency-closure.py
+          forbidden=(
+            --forbid-dependency-group-prefix io.coil-kt.coil3
+            --forbid-dependency-group-prefix org.jetbrains.compose
+            --forbid-dependency-group-prefix org.jetbrains.skiko
+          )
+          python3 "$verifier" "$repository" \
+            --coordinate io.github.archivesteak.coil3:coil-core:3.6.0-mingw \
+            "${forbidden[@]}"
+          python3 "$verifier" "$repository" \
+            --coordinate io.github.archivesteak.coil3:coil:3.6.0-mingw \
+            --require-dependency io.github.archivesteak.coil3:coil-core:3.6.0-mingw \
+            "${forbidden[@]}"
+          python3 "$verifier" "$repository" \
+            --coordinate io.github.archivesteak.coil3:coil-compose-core:3.6.0-mingw \
+            --require-dependency io.github.archivesteak.coil3:coil-core:3.6.0-mingw \
+            "${forbidden[@]}"
+          python3 "$verifier" "$repository" \
+            --coordinate io.github.archivesteak.coil3:coil-compose:3.6.0-mingw \
+            --require-dependency io.github.archivesteak.coil3:coil:3.6.0-mingw \
+            --require-dependency io.github.archivesteak.coil3:coil-compose-core:3.6.0-mingw \
+            "${forbidden[@]}"
+          python3 "$verifier" "$repository" \
+            --coordinate io.github.archivesteak.coil3:coil-network-core:3.6.0-mingw \
+            --require-dependency io.github.archivesteak.coil3:coil-core:3.6.0-mingw \
+            "${forbidden[@]}"
+          python3 "$verifier" "$repository" \
+            --coordinate io.github.archivesteak.coil3:coil-network-ktor3:3.6.0-mingw \
+            --require-dependency io.github.archivesteak.coil3:coil-core:3.6.0-mingw \
+            --require-dependency io.github.archivesteak.coil3:coil-network-core:3.6.0-mingw \
+            "${forbidden[@]}"
+          if find "$repository/io/github/archivesteak/coil3" \
+            -path '*SNAPSHOT*' -print -quit | grep -q .; then
+            echo "validated Coil repository contains a snapshot path"
+            exit 1
+          fi
+
+      - name: Upload validated core, resources, plugin, and Coil repository
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: validated-coil-maven
+          path: ${{ runner.temp }}/validated-coil
+          if-no-files-found: error
+          retention-days: 1

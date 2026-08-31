@@ -2,7 +2,8 @@ import coil3.VerifyLocalPublicationScopeTask
 import coil3.enableComposeMetrics
 import coil3.groupId
 import coil3.isRemotePublicationTask
-import coil3.mingwClosureLocalPublicationTaskPaths
+import coil3.localPublicationOwnerProperty
+import coil3.localPublicationTaskPathsByOwner
 import coil3.publicModules
 import coil3.remotePublicationProperty
 import coil3.versionName
@@ -68,43 +69,77 @@ dependencies {
     }
 }
 
-val verifyMingwClosureLocalPublicationScope = tasks.register<VerifyLocalPublicationScopeTask>(
-    "verifyMingwClosureLocalPublicationScope",
-) {
-    group = "verification"
-    description = "Fails unless local Maven publication is limited to the MinGW module closure."
-    expectedTaskPaths.set(mingwClosureLocalPublicationTaskPaths)
-    enabledTaskPaths.set(
-        provider {
-            allprojects.flatMap { project ->
-                project.tasks.withType<PublishToMavenLocal>()
-                    .filter { task -> task.enabled }
-                    .map { task -> task.path }
-            }.toSet()
-        },
-    )
+val requestedLocalPublicationOwner = providers.gradleProperty(localPublicationOwnerProperty)
+    .orElse("<missing>")
+
+val localPublicationRequested = gradle.startParameter.taskNames.any { taskName ->
+    "publish" in taskName.lowercase() && "mavenlocal" in taskName.lowercase()
+}
+if (localPublicationRequested) {
+    gradle.taskGraph.whenReady {
+        val requestedLocalTasks = allTasks.filterIsInstance<PublishToMavenLocal>()
+        if (requestedLocalTasks.isNotEmpty()) {
+            val owner = requestedLocalPublicationOwner.get()
+            val expectedPaths = localPublicationTaskPathsByOwner[owner]
+                ?: error(
+                    "Local Maven publication requires -P$localPublicationOwnerProperty=" +
+                        localPublicationTaskPathsByOwner.keys.sorted().joinToString("|"),
+                )
+            val unexpectedPaths = requestedLocalTasks.map { it.path }.filterNot(expectedPaths::contains)
+            check(unexpectedPaths.isEmpty()) {
+                "The $owner publication graph contains tasks outside its host closure: " +
+                    unexpectedPaths.sorted().joinToString()
+            }
+        }
+    }
 }
 
-val publishMingwClosureToMavenLocal = tasks.register("publishMingwClosureToMavenLocal") {
-    group = "publishing"
-    description = "Publishes only the six MinGW closure modules' root and mingwX64 publications."
-    dependsOn(verifyMingwClosureLocalPublicationScope)
+val localPublicationVerifications = localPublicationTaskPathsByOwner.mapValues { (owner, expectedPaths) ->
+    val capitalizedOwner = owner.replaceFirstChar(Char::uppercaseChar)
+    tasks.register<VerifyLocalPublicationScopeTask>(
+        "verify${capitalizedOwner}ClosureLocalPublicationScope",
+    ) {
+        group = "verification"
+        description = "Fails unless local Maven publication is exactly the $owner host closure."
+        expectedOwner.set(owner)
+        requestedOwner.set(requestedLocalPublicationOwner)
+        expectedTaskPaths.set(expectedPaths)
+        enabledTaskPaths.set(
+            provider {
+                allprojects.flatMap { project ->
+                    project.tasks.withType<PublishToMavenLocal>()
+                        .filter { task -> task.enabled }
+                        .map { task -> task.path }
+                }.toSet()
+            },
+        )
+    }
+}
+
+val localPublicationAggregates = localPublicationTaskPathsByOwner.mapValues { (owner, _) ->
+    val capitalizedOwner = owner.replaceFirstChar(Char::uppercaseChar)
+    val verify = localPublicationVerifications.getValue(owner)
+    val aggregate = tasks.register("publish${capitalizedOwner}ClosureToMavenLocal") {
+        group = "publishing"
+        description = "Publishes only the six-module $owner host closure."
+        dependsOn(verify)
+    }
+    verify.configure {
+        aggregateTaskPaths.set(
+            provider {
+                val aggregateTask = aggregate.get()
+                aggregateTask.taskDependencies.getDependencies(aggregateTask)
+                    .filterIsInstance<PublishToMavenLocal>()
+                    .mapTo(mutableSetOf()) { task -> task.path }
+            },
+        )
+    }
+    aggregate
 }
 
 val remotePublicationEnabled = providers.gradleProperty(remotePublicationProperty)
     .map { value -> value.toBooleanStrict() }
     .orElse(false)
-
-verifyMingwClosureLocalPublicationScope.configure {
-    aggregateTaskPaths.set(
-        provider {
-            val aggregate = publishMingwClosureToMavenLocal.get()
-            aggregate.taskDependencies.getDependencies(aggregate)
-                .filterIsInstance<PublishToMavenLocal>()
-                .mapTo(mutableSetOf()) { task -> task.path }
-        },
-    )
-}
 
 allprojects {
     // Necessary to publish to Maven.
@@ -113,13 +148,24 @@ allprojects {
 
     tasks.withType<PublishToMavenLocal>().all {
         val publicationTask = this
-        val isInMingwClosure = path in mingwClosureLocalPublicationTaskPaths
-        enabled = isInMingwClosure
-        if (isInMingwClosure) {
-            publishMingwClosureToMavenLocal.configure {
+        val owner = requestedLocalPublicationOwner.get()
+        val expectedPaths = localPublicationTaskPathsByOwner[owner]
+        if (expectedPaths == null) {
+            doFirst {
+                error(
+                    "Local Maven publication requires -P$localPublicationOwnerProperty=" +
+                        localPublicationTaskPathsByOwner.keys.sorted().joinToString("|"),
+                )
+            }
+            return@all
+        }
+        val isInSelectedClosure = path in expectedPaths
+        enabled = isInSelectedClosure
+        if (isInSelectedClosure) {
+            localPublicationAggregates.getValue(owner).configure {
                 dependsOn(publicationTask)
             }
-            mustRunAfter(verifyMingwClosureLocalPublicationScope)
+            mustRunAfter(localPublicationVerifications.getValue(owner))
         }
     }
 

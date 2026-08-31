@@ -171,8 +171,14 @@ fun Project.setupPublishing(
 ) {
     extensions.configure<MavenPublishBaseExtension> {
         pomFromGradleProperties()
-        // This fork intentionally configures local Maven publications only. Remote publishing and
-        // signing stay disabled until a release is explicitly approved and configured.
+        val remotePublicationEnabled = providers.gradleProperty(remotePublicationProperty)
+            .map { value -> value.toBooleanStrict() }
+            .orElse(false)
+            .get()
+        if (remotePublicationEnabled) {
+            publishToMavenCentral()
+            signAllPublications()
+        }
         action()
     }
 }

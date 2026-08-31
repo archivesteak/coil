@@ -16,4 +16,6 @@ gradle_args=("-Dmaven.repo.local=$MAVEN_REPO_LOCAL")
 ./gradlew "${gradle_args[@]}" generateBaselineProfile
 
 # Build and upload the artifacts to 'mavenCentral'.
-./gradlew "${gradle_args[@]}" publishToMavenCentral -Pcoil.remotePublication.enabled=true
+./gradlew "${gradle_args[@]}" publishToMavenCentral \
+    -Pcoil.remotePublication.enabled=true \
+    -PRELEASE_SIGNING_ENABLED=true
