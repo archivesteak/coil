@@ -139,6 +139,9 @@ jobs:
           repository: ${{ inputs.core_repository }}
           ref: ${{ inputs.core_tools_ref }}
           path: core-contract
+          sparse-checkout: |
+            scripts
+            .github/scripts
           persist-credentials: false
           token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
 
@@ -402,6 +405,9 @@ jobs:
           repository: ${{ inputs.core_repository }}
           ref: ${{ inputs.core_tools_ref }}
           path: core-contract
+          sparse-checkout: |
+            scripts
+            .github/scripts
           persist-credentials: false
           token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
 
@@ -608,6 +614,9 @@ jobs:
           repository: ${{ inputs.core_repository }}
           ref: ${{ inputs.core_tools_ref }}
           path: core-contract
+          sparse-checkout: |
+            scripts
+            .github/scripts
           persist-credentials: false
           token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
 
