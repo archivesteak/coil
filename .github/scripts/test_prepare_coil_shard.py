@@ -25,6 +25,7 @@ from prepare_coil_shard import (
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 REQUIREMENTS_PATH = SCRIPT_DIRECTORY.parent / "coil-maven-variant-requirements.json"
+GRADLE_PROPERTIES_PATH = SCRIPT_DIRECTORY.parents[1] / "gradle.properties"
 COMMITS = {
     "compose": "1" * 40,
     "skia": "2" * 40,
@@ -165,6 +166,26 @@ class ReleaseFixture:
 
 
 class PrepareCoilShardTest(unittest.TestCase):
+    def test_publication_properties_identify_the_fork_maintainer(self) -> None:
+        properties = {}
+        for raw_line in GRADLE_PROPERTIES_PATH.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            properties[key] = value
+
+        self.assertEqual(properties["POM_DEVELOPER_ID"], "archivesteak")
+        self.assertEqual(properties["POM_DEVELOPER_NAME"], "Jack Harrington")
+        self.assertEqual(
+            properties["POM_DEVELOPER_URL"],
+            "https://github.com/archivesteak",
+        )
+        self.assertEqual(
+            properties["POM_SCM_DEV_CONNECTION"],
+            "scm:git:ssh://git@github.com/archivesteak/coil.git",
+        )
+
     def test_every_host_owns_root_metadata_and_exact_target_count(self) -> None:
         requirements = load_json(REQUIREMENTS_PATH, "checked-in requirements")
         expected_counts = {"windows": 18, "apple": 24, "web": 32}

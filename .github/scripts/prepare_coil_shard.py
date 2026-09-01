@@ -420,10 +420,44 @@ def validate_publication(version_directory: Path, artifact: str) -> None:
         xml_text(pom, "version"),
     ) != (GROUP, artifact, VERSION):
         raise ContractError(f"{artifact} POM has the wrong coordinate")
+    if not xml_text(pom, "name") or not xml_text(pom, "description"):
+        raise ContractError(f"{artifact} POM has incomplete name or description metadata")
     if xml_text(pom, "url") != "https://github.com/archivesteak/coil":
         raise ContractError(f"{artifact} POM has the wrong project URL")
+
+    licenses = pom.find("{*}licenses")
+    if licenses is None or not any(
+        xml_text(license, "name") and xml_text(license, "url")
+        for license in licenses.findall("{*}license")
+    ):
+        raise ContractError(f"{artifact} POM has incomplete license metadata")
+
+    developers = pom.find("{*}developers")
+    if developers is None or not any(
+        (
+            xml_text(developer, "id"),
+            xml_text(developer, "name"),
+            xml_text(developer, "url").rstrip("/"),
+        )
+        == (
+            "archivesteak",
+            "Jack Harrington",
+            "https://github.com/archivesteak",
+        )
+        for developer in developers.findall("{*}developer")
+    ):
+        raise ContractError(f"{artifact} POM has the wrong fork developer metadata")
+
     scm = pom.find("{*}scm")
-    if scm is None or xml_text(scm, "url") != "https://github.com/archivesteak/coil":
+    if scm is None or (
+        xml_text(scm, "url"),
+        xml_text(scm, "connection"),
+        xml_text(scm, "developerConnection"),
+    ) != (
+        "https://github.com/archivesteak/coil",
+        "scm:git:https://github.com/archivesteak/coil.git",
+        "scm:git:ssh://git@github.com/archivesteak/coil.git",
+    ):
         raise ContractError(f"{artifact} POM has the wrong SCM URL")
 
     module_path = version_directory / f"{base}.module"
