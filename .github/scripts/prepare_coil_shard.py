@@ -633,7 +633,8 @@ def prepare_shard(
             root,
             {
                 variant
-                for variants in modules[root]["requiredVariants"].values()
+                for platform, variants in modules[root]["requiredVariants"].items()
+                if platform == "common" or EXPECTED_PLATFORM_OWNERS[platform] == owner
                 for variant in variants
             },
         )
