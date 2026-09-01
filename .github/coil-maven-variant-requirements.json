@@ -19,21 +19,21 @@
     "windows": {
       "coil": "a38d2cb7a5c55a18497f1adf9b974dfdf9b5328e",
       "compose-core": "bfefb96bdc1b50f2fcc540dce8eea742dc5982cf",
-      "resources": "c7d9dfef58bd71ade64949293ab5261e8619134f",
+      "resources": "c365dbca43e8f9c1399d8f37a3b7864af98d01ed",
       "skia": "343b3b3b03072992df41ef46c3d8e78ef7a5792e",
       "skiko": "0adbc7a2d3365d902d51b2c0e7940d15a11a35d3"
     },
     "apple": {
       "coil": "a38d2cb7a5c55a18497f1adf9b974dfdf9b5328e",
       "compose-core": "bfefb96bdc1b50f2fcc540dce8eea742dc5982cf",
-      "resources": "c7d9dfef58bd71ade64949293ab5261e8619134f",
+      "resources": "c365dbca43e8f9c1399d8f37a3b7864af98d01ed",
       "skia": "343b3b3b03072992df41ef46c3d8e78ef7a5792e",
       "skiko": "0adbc7a2d3365d902d51b2c0e7940d15a11a35d3"
     },
     "web": {
       "coil": "a38d2cb7a5c55a18497f1adf9b974dfdf9b5328e",
       "compose-core": "bfefb96bdc1b50f2fcc540dce8eea742dc5982cf",
-      "resources": "c7d9dfef58bd71ade64949293ab5261e8619134f",
+      "resources": "c365dbca43e8f9c1399d8f37a3b7864af98d01ed",
       "skia": "343b3b3b03072992df41ef46c3d8e78ef7a5792e",
       "skiko": "0adbc7a2d3365d902d51b2c0e7940d15a11a35d3"
     }
