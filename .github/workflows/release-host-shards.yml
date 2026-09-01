@@ -439,6 +439,17 @@ jobs:
           npm install --global yarn@1.22.22
           test "$(yarn --version)" = 1.22.22
 
+      - name: Install required Linux native development libraries
+        if: matrix.owner == 'web'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libfontconfig1-dev \
+            libgl1-mesa-dev
+          pkg-config --exists fontconfig
+          pkg-config --exists gl
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
@@ -503,6 +514,7 @@ jobs:
         shell: bash
         working-directory: coil-source
         env:
+          OWNER: ${{ matrix.owner }}
           TEST_TASKS: ${{ matrix.test_tasks }}
           WEB_TOOLCHAIN_DOWNLOAD: ${{ matrix.owner == 'web' && 'false' || 'true' }}
         run: |
@@ -515,6 +527,12 @@ jobs:
             -Pcoil.remotePublication.enabled=false
             "-Pcoil.webToolchain.download=$WEB_TOOLCHAIN_DOWNLOAD"
           )
+          if [ "$OWNER" = web ]; then
+            # Browser test processes and Kotlin/Native linkers are both memory-
+            # intensive. Keep the web closure deterministic on a 2-core runner
+            # instead of allowing a live Karma browser to be starved by linkers.
+            arguments+=(--max-workers=1)
+          fi
           if [ "$RUNNER_OS" = Windows ]; then
             ./gradlew.bat "${arguments[@]}" "${tasks[@]}"
           else

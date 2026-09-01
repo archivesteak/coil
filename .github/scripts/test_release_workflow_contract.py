@@ -41,6 +41,24 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("extensions.configure<WasmYarnRootEnvSpec>", build)
         self.assertEqual(build.count("download.set(downloadWebToolchain)"), 4)
 
+    def test_web_release_installs_and_probes_native_link_dependencies(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "- name: Install required Linux native development libraries\n"
+            "        if: matrix.owner == 'web'",
+            workflow,
+        )
+        self.assertIn("libfontconfig1-dev", workflow)
+        self.assertIn("libgl1-mesa-dev", workflow)
+        self.assertIn("pkg-config --exists fontconfig", workflow)
+        self.assertIn("pkg-config --exists gl", workflow)
+
+    def test_web_release_serializes_browser_and_native_test_workers(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("OWNER: ${{ matrix.owner }}", workflow)
+        self.assertIn('if [ "$OWNER" = web ]; then', workflow)
+        self.assertIn("arguments+=(--max-workers=1)", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
