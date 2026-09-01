@@ -23,6 +23,7 @@ from prepare_coil_shard import (
     load_json,
     module_requirements,
     primary_extension,
+    restrict_root_module_variants,
     validate_publication,
     validate_release_contract,
 )
@@ -262,6 +263,39 @@ class ReleaseFixture:
 
 
 class PrepareCoilShardTest(unittest.TestCase):
+    def test_root_metadata_is_narrowed_to_the_exact_host_variant_set(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            version_directory = Path(directory)
+            artifact = ROOT_ARTIFACTS[0]
+            module_path = version_directory / f"{artifact}-{VERSION}.module"
+            write_json(
+                module_path,
+                {
+                    "component": {
+                        "group": GROUP,
+                        "module": artifact,
+                        "version": VERSION,
+                    },
+                    "variants": [
+                        {"name": "metadataApiElements", "attributes": {"owner": "common"}},
+                        {"name": "jvmApiElements-published", "attributes": {"owner": "windows"}},
+                        {"name": "jsApiElements-published", "attributes": {"owner": "web"}},
+                    ],
+                },
+            )
+
+            restrict_root_module_variants(
+                version_directory,
+                artifact,
+                {"metadataApiElements", "jvmApiElements-published"},
+            )
+
+            module = load_json(module_path, "narrowed root metadata")
+            self.assertEqual(
+                [variant["name"] for variant in module["variants"]],
+                ["metadataApiElements", "jvmApiElements-published"],
+            )
+
     def test_skiko_browser_runtime_matches_published_module_and_polyfills_node(self) -> None:
         for relative in (
             "coil-core/src/jsMain/kotlin/coil3/decode/WebWorker.js.kt",

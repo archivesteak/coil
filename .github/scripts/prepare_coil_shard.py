@@ -610,6 +610,38 @@ def validate_publication(
             verify_archive(path)
 
 
+def restrict_root_module_variants(
+    version_directory: Path,
+    artifact: str,
+    expected_variants: set[str],
+) -> None:
+    """Narrow a verified full KMP root module to one host-owned shard."""
+    module_path = version_directory / f"{artifact}-{VERSION}.module"
+    module = load_json(module_path, f"{artifact} copied Gradle metadata")
+    variants = module.get("variants")
+    if not isinstance(variants, list):
+        raise ContractError(f"{artifact} copied Gradle metadata has no variants")
+    selected = [
+        variant
+        for variant in variants
+        if isinstance(variant, dict) and variant.get("name") in expected_variants
+    ]
+    selected_names = {
+        variant.get("name") for variant in selected if isinstance(variant, dict)
+    }
+    if selected_names != expected_variants or len(selected) != len(expected_variants):
+        raise ContractError(
+            f"{artifact} cannot be narrowed to the exact host variant set: "
+            f"expected {sorted(expected_variants)}, found {sorted(selected_names)}"
+        )
+    module["variants"] = selected
+    module_path.write_text(
+        json.dumps(module, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
 def prepare_shard(
     *,
     owner: str,
@@ -684,13 +716,39 @@ def prepare_shard(
         if spec is None:
             raise ContractError(f"{artifact} has no Coil root publication mapping")
         root_artifact, expected_variants = spec
-        validate_publication(
-            source_version,
-            artifact,
-            root_artifact,
-            expected_variants,
-        )
-        shutil.copytree(source_version, destination_group / artifact / VERSION)
+        destination_version = destination_group / artifact / VERSION
+        if artifact == root_artifact:
+            all_variants = {
+                variant
+                for variants in modules[root_artifact]["requiredVariants"].values()
+                for variant in variants
+            }
+            validate_publication(
+                source_version,
+                artifact,
+                root_artifact,
+                all_variants,
+            )
+            shutil.copytree(source_version, destination_version)
+            restrict_root_module_variants(
+                destination_version,
+                artifact,
+                expected_variants,
+            )
+            validate_publication(
+                destination_version,
+                artifact,
+                root_artifact,
+                expected_variants,
+            )
+        else:
+            validate_publication(
+                source_version,
+                artifact,
+                root_artifact,
+                expected_variants,
+            )
+            shutil.copytree(source_version, destination_version)
 
     marker = destination / "provenance" / f"{owner}.json"
     marker.parent.mkdir(parents=True)
