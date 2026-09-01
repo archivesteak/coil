@@ -7,7 +7,7 @@ import kotlin.js.JsAny
 import kotlin.js.Promise
 import kotlinx.coroutines.await
 
-@JsModule("./js-reexport-symbols.mjs")
+@JsModule("./js-skiko-reexport-symbols.mjs")
 @JsNonModule
 private external val skikoModule: SkikoModule
 

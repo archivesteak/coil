@@ -1,5 +1,5 @@
 @file:OptIn(ExperimentalWasmJsInterop::class)
-@file:JsModule("./js-reexport-symbols.mjs")
+@file:JsModule("./js-skiko-reexport-symbols.mjs")
 @file:JsQualifier("api")
 
 package coil3.decode
