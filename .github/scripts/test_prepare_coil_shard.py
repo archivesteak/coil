@@ -32,6 +32,7 @@ SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 REQUIREMENTS_PATH = SCRIPT_DIRECTORY.parent / "coil-maven-variant-requirements.json"
 GRADLE_PROPERTIES_PATH = SCRIPT_DIRECTORY.parents[1] / "gradle.properties"
 RELEASE_WORKFLOW_PATH = SCRIPT_DIRECTORY.parent / "workflows/release-host-shards.yml"
+REPOSITORY_ROOT = SCRIPT_DIRECTORY.parents[1]
 COMMITS = {
     "compose": "1" * 40,
     "skia": "2" * 40,
@@ -261,6 +262,21 @@ class ReleaseFixture:
 
 
 class PrepareCoilShardTest(unittest.TestCase):
+    def test_skiko_browser_runtime_matches_published_module_and_polyfills_node(self) -> None:
+        for relative in (
+            "coil-core/src/jsMain/kotlin/coil3/decode/WebWorker.js.kt",
+            "coil-core/src/wasmJsMain/kotlin/coil3/decode/SkikoModule.wasmJs.kt",
+        ):
+            source = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
+            self.assertIn('"./js-skiko-reexport-symbols.mjs"', source)
+            self.assertNotIn('"./js-reexport-symbols.mjs"', source)
+
+        karma_config = (
+            REPOSITORY_ROOT / "karma.config.d/20-skiko-browser-runtime.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn('require("node-polyfill-webpack-plugin")', karma_config)
+        self.assertIn("new NodePolyfillPlugin()", karma_config)
+
     def test_root_publication_requires_valid_kotlin_tooling_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             version_directory = Path(directory)
