@@ -457,6 +457,23 @@ class PrepareCoilShardTest(unittest.TestCase):
             fixture = ReleaseFixture(Path(directory))
             fixture.validate()
 
+    def test_upstream_requirements_hash_is_independent_of_checkout_line_endings(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = ReleaseFixture(Path(directory))
+            for path in (
+                fixture.core_requirements,
+                fixture.resources_requirements,
+            ):
+                content = path.read_text(encoding="utf-8")
+                path.write_text(
+                    content.replace("\n", "\r\n"),
+                    encoding="utf-8",
+                    newline="",
+                )
+            fixture.validate()
+
     def test_rejects_tampered_plugin_payload(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             fixture = ReleaseFixture(Path(directory))

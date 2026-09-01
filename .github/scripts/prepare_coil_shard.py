@@ -115,6 +115,17 @@ def sha256_file(path: Path, description: str) -> str:
     return digest.hexdigest()
 
 
+def sha256_text_file(path: Path, description: str) -> str:
+    """Hash UTF-8 text independently of the checkout platform's line endings."""
+    if path.is_symlink() or not path.is_file():
+        raise ContractError(f"{description} must be a regular file: {path}")
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise ContractError(f"cannot read {description} {path}: {error}") from error
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
 def module_requirements(requirements: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if requirements.get("schemaVersion") != 2:
         raise ContractError("Coil requirements must use schemaVersion 2")
@@ -230,7 +241,10 @@ def report_sources(
 ) -> dict[str, str]:
     report = load_json(report_path, f"{description} merge report")
     requirements = load_json(requirements_path, f"{description} requirements")
-    expected_hash = sha256_file(requirements_path, f"{description} requirements")
+    expected_hash = sha256_text_file(
+        requirements_path,
+        f"{description} requirements",
+    )
     if report.get("requirementsSha256") != expected_hash:
         raise ContractError(
             f"{description} merge report does not match the checked-out requirements"
