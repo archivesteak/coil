@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 2,
+  "groupPrefix": "io.github.archivesteak.coil3",
+  "note": "This immutable contract pins the complete Coil source commit A and every upstream producer source used by the validated resources artifact.",
+  "platformOwners": {
+    "common": "windows",
+    "jvm": "windows",
+    "mingwX64": "windows",
+    "macosArm64": "apple",
+    "iosArm64": "apple",
+    "iosSimulatorArm64": "apple",
+    "js": "web",
+    "wasmJs": "web",
+    "android": "web",
+    "linuxX64": "web",
+    "linuxArm64": "web"
+  },
+  "sourceProvenance": {
+    "windows": {
+      "coil": "a4513e0fe8db540ec7aaebc3c054000e6588f910",
+      "compose-core": "2f6ffd997c798e063f1a717521673d5f4e2365c6",
+      "resources": "81a37681bbe0770946c59af24b71440cc6eeb24d",
+      "skia": "343b3b3b03072992df41ef46c3d8e78ef7a5792e",
+      "skiko": "73e4b5ef52f42728787d060007774166962cc668"
+    },
+    "apple": {
+      "coil": "a4513e0fe8db540ec7aaebc3c054000e6588f910",
+      "compose-core": "2f6ffd997c798e063f1a717521673d5f4e2365c6",
+      "resources": "81a37681bbe0770946c59af24b71440cc6eeb24d",
+      "skia": "343b3b3b03072992df41ef46c3d8e78ef7a5792e",
+      "skiko": "73e4b5ef52f42728787d060007774166962cc668"
+    },
+    "web": {
+      "coil": "a4513e0fe8db540ec7aaebc3c054000e6588f910",
+      "compose-core": "2f6ffd997c798e063f1a717521673d5f4e2365c6",
+      "resources": "81a37681bbe0770946c59af24b71440cc6eeb24d",
+      "skia": "343b3b3b03072992df41ef46c3d8e78ef7a5792e",
+      "skiko": "73e4b5ef52f42728787d060007774166962cc668"
+    }
+  },
+  "pomOnlyModules": [],
+  "modules": [
+    {
+      "coordinate": "io.github.archivesteak.coil3:coil:3.6.0-mingw",
+      "requiredVariants": {
+        "common": ["metadataApiElements", "metadataSourcesElements"],
+        "jvm": ["jvmApiElements-published", "jvmRuntimeElements-published", "jvmSourcesElements-published"],
+        "mingwX64": ["mingwX64ApiElements-published", "mingwX64SourcesElements-published"],
+        "macosArm64": ["macosArm64ApiElements-published", "macosArm64SourcesElements-published", "macosArm64MetadataElements-published"],
+        "iosArm64": ["iosArm64ApiElements-published", "iosArm64SourcesElements-published", "iosArm64MetadataElements-published"],
+        "iosSimulatorArm64": ["iosSimulatorArm64ApiElements-published", "iosSimulatorArm64SourcesElements-published", "iosSimulatorArm64MetadataElements-published"],
+        "js": ["jsApiElements-published", "jsRuntimeElements-published", "jsSourcesElements-published"],
+        "wasmJs": ["wasmJsApiElements-published", "wasmJsRuntimeElements-published", "wasmJsSourcesElements-published"],
+        "android": ["androidApiElements-published", "androidRuntimeElements-published", "androidSourcesElements-published"],
+        "linuxX64": ["linuxX64ApiElements-published", "linuxX64SourcesElements-published"],
+        "linuxArm64": ["linuxArm64ApiElements-published", "linuxArm64SourcesElements-published"]
+      },
+      "targetModules": {
+        "jvm": "coil-jvm",
+        "mingwX64": "coil-mingwx64",
+        "macosArm64": "coil-macosarm64",
+        "iosArm64": "coil-iosarm64",
+        "iosSimulatorArm64": "coil-iossimulatorarm64",
+        "js": "coil-js",
+        "wasmJs": "coil-wasm-js",
+        "android": "coil-android",
+        "linuxX64": "coil-linuxx64",
+        "linuxArm64": "coil-linuxarm64"
+      }
+    },
+    {
+      "coordinate": "io.github.archivesteak.coil3:coil-core:3.6.0-mingw",
+      "requiredVariants": {
+        "common": ["metadataApiElements", "metadataSourcesElements"],
+        "jvm": ["jvmApiElements-published", "jvmRuntimeElements-published", "jvmSourcesElements-published"],
+        "mingwX64": ["mingwX64ApiElements-published", "mingwX64SourcesElements-published"],
+        "macosArm64": ["macosArm64ApiElements-published", "macosArm64SourcesElements-published", "macosArm64MetadataElements-published"],
+        "iosArm64": ["iosArm64ApiElements-published", "iosArm64SourcesElements-published", "iosArm64MetadataElements-published"],
+        "iosSimulatorArm64": ["iosSimulatorArm64ApiElements-published", "iosSimulatorArm64SourcesElements-published", "iosSimulatorArm64MetadataElements-published"],
+        "js": ["jsApiElements-published", "jsRuntimeElements-published", "jsSourcesElements-published"],
+        "wasmJs": ["wasmJsApiElements-published", "wasmJsRuntimeElements-published", "wasmJsSourcesElements-published"],
+        "android": ["androidApiElements-published", "androidRuntimeElements-published", "androidSourcesElements-published"],
+        "linuxX64": ["linuxX64ApiElements-published", "linuxX64SourcesElements-published"],
+        "linuxArm64": ["linuxArm64ApiElements-published", "linuxArm64SourcesElements-published"]
+      },
+      "targetModules": {
+        "jvm": "coil-core-jvm",
+        "mingwX64": "coil-core-mingwx64",
+        "macosArm64": "coil-core-macosarm64",
+        "iosArm64": "coil-core-iosarm64",
+        "iosSimulatorArm64": "coil-core-iossimulatorarm64",
+        "js": "coil-core-js",
+        "wasmJs": "coil-core-wasm-js",
+        "android": "coil-core-android",
+        "linuxX64": "coil-core-linuxx64",
+        "linuxArm64": "coil-core-linuxarm64"
+      }
+    },
+    {
+      "coordinate": "io.github.archivesteak.coil3:coil-compose:3.6.0-mingw",
+      "requiredVariants": {
+        "common": ["metadataApiElements", "metadataSourcesElements"],
+        "jvm": ["jvmApiElements-published", "jvmRuntimeElements-published", "jvmSourcesElements-published"],
+        "mingwX64": ["mingwX64ApiElements-published", "mingwX64SourcesElements-published"],
+        "macosArm64": ["macosArm64ApiElements-published", "macosArm64SourcesElements-published", "macosArm64MetadataElements-published"],
+        "iosArm64": ["iosArm64ApiElements-published", "iosArm64SourcesElements-published", "iosArm64MetadataElements-published"],
+        "iosSimulatorArm64": ["iosSimulatorArm64ApiElements-published", "iosSimulatorArm64SourcesElements-published", "iosSimulatorArm64MetadataElements-published"],
+        "js": ["jsApiElements-published", "jsRuntimeElements-published", "jsSourcesElements-published"],
+        "wasmJs": ["wasmJsApiElements-published", "wasmJsRuntimeElements-published", "wasmJsSourcesElements-published"],
+        "android": ["androidApiElements-published", "androidRuntimeElements-published", "androidSourcesElements-published"]
+      },
+      "targetModules": {
+        "jvm": "coil-compose-jvm",
+        "mingwX64": "coil-compose-mingwx64",
+        "macosArm64": "coil-compose-macosarm64",
+        "iosArm64": "coil-compose-iosarm64",
+        "iosSimulatorArm64": "coil-compose-iossimulatorarm64",
+        "js": "coil-compose-js",
+        "wasmJs": "coil-compose-wasm-js",
+        "android": "coil-compose-android"
+      }
+    },
+    {
+      "coordinate": "io.github.archivesteak.coil3:coil-compose-core:3.6.0-mingw",
+      "requiredVariants": {
+        "common": ["metadataApiElements", "metadataSourcesElements"],
+        "jvm": ["jvmApiElements-published", "jvmRuntimeElements-published", "jvmSourcesElements-published"],
+        "mingwX64": ["mingwX64ApiElements-published", "mingwX64SourcesElements-published"],
+        "macosArm64": ["macosArm64ApiElements-published", "macosArm64SourcesElements-published", "macosArm64MetadataElements-published"],
+        "iosArm64": ["iosArm64ApiElements-published", "iosArm64SourcesElements-published", "iosArm64MetadataElements-published"],
+        "iosSimulatorArm64": ["iosSimulatorArm64ApiElements-published", "iosSimulatorArm64SourcesElements-published", "iosSimulatorArm64MetadataElements-published"],
+        "js": ["jsApiElements-published", "jsRuntimeElements-published", "jsSourcesElements-published"],
+        "wasmJs": ["wasmJsApiElements-published", "wasmJsRuntimeElements-published", "wasmJsSourcesElements-published"],
+        "android": ["androidApiElements-published", "androidRuntimeElements-published", "androidSourcesElements-published"]
+      },
+      "targetModules": {
+        "jvm": "coil-compose-core-jvm",
+        "mingwX64": "coil-compose-core-mingwx64",
+        "macosArm64": "coil-compose-core-macosarm64",
+        "iosArm64": "coil-compose-core-iosarm64",
+        "iosSimulatorArm64": "coil-compose-core-iossimulatorarm64",
+        "js": "coil-compose-core-js",
+        "wasmJs": "coil-compose-core-wasm-js",
+        "android": "coil-compose-core-android"
+      }
+    },
+    {
+      "coordinate": "io.github.archivesteak.coil3:coil-network-core:3.6.0-mingw",
+      "requiredVariants": {
+        "common": ["metadataApiElements", "metadataSourcesElements"],
+        "jvm": ["jvmApiElements-published", "jvmRuntimeElements-published", "jvmSourcesElements-published"],
+        "mingwX64": ["mingwX64ApiElements-published", "mingwX64SourcesElements-published"],
+        "macosArm64": ["macosArm64ApiElements-published", "macosArm64SourcesElements-published", "macosArm64MetadataElements-published"],
+        "iosArm64": ["iosArm64ApiElements-published", "iosArm64SourcesElements-published", "iosArm64MetadataElements-published"],
+        "iosSimulatorArm64": ["iosSimulatorArm64ApiElements-published", "iosSimulatorArm64SourcesElements-published", "iosSimulatorArm64MetadataElements-published"],
+        "js": ["jsApiElements-published", "jsRuntimeElements-published", "jsSourcesElements-published"],
+        "wasmJs": ["wasmJsApiElements-published", "wasmJsRuntimeElements-published", "wasmJsSourcesElements-published"],
+        "android": ["androidApiElements-published", "androidRuntimeElements-published", "androidSourcesElements-published"],
+        "linuxX64": ["linuxX64ApiElements-published", "linuxX64SourcesElements-published"],
+        "linuxArm64": ["linuxArm64ApiElements-published", "linuxArm64SourcesElements-published"]
+      },
+      "targetModules": {
+        "jvm": "coil-network-core-jvm",
+        "mingwX64": "coil-network-core-mingwx64",
+        "macosArm64": "coil-network-core-macosarm64",
+        "iosArm64": "coil-network-core-iosarm64",
+        "iosSimulatorArm64": "coil-network-core-iossimulatorarm64",
+        "js": "coil-network-core-js",
+        "wasmJs": "coil-network-core-wasm-js",
+        "android": "coil-network-core-android",
+        "linuxX64": "coil-network-core-linuxx64",
+        "linuxArm64": "coil-network-core-linuxarm64"
+      }
+    },
+    {
+      "coordinate": "io.github.archivesteak.coil3:coil-network-ktor3:3.6.0-mingw",
+      "requiredVariants": {
+        "common": ["metadataApiElements", "metadataSourcesElements"],
+        "jvm": ["jvmApiElements-published", "jvmRuntimeElements-published", "jvmSourcesElements-published"],
+        "mingwX64": ["mingwX64ApiElements-published", "mingwX64SourcesElements-published"],
+        "macosArm64": ["macosArm64ApiElements-published", "macosArm64SourcesElements-published", "macosArm64MetadataElements-published"],
+        "iosArm64": ["iosArm64ApiElements-published", "iosArm64SourcesElements-published", "iosArm64MetadataElements-published"],
+        "iosSimulatorArm64": ["iosSimulatorArm64ApiElements-published", "iosSimulatorArm64SourcesElements-published", "iosSimulatorArm64MetadataElements-published"],
+        "js": ["jsApiElements-published", "jsRuntimeElements-published", "jsSourcesElements-published"],
+        "wasmJs": ["wasmJsApiElements-published", "wasmJsRuntimeElements-published", "wasmJsSourcesElements-published"],
+        "android": ["androidApiElements-published", "androidRuntimeElements-published", "androidSourcesElements-published"],
+        "linuxX64": ["linuxX64ApiElements-published", "linuxX64SourcesElements-published"],
+        "linuxArm64": ["linuxArm64ApiElements-published", "linuxArm64SourcesElements-published"]
+      },
+      "targetModules": {
+        "jvm": "coil-network-ktor3-jvm",
+        "mingwX64": "coil-network-ktor3-mingwx64",
+        "macosArm64": "coil-network-ktor3-macosarm64",
+        "iosArm64": "coil-network-ktor3-iosarm64",
+        "iosSimulatorArm64": "coil-network-ktor3-iossimulatorarm64",
+        "js": "coil-network-ktor3-js",
+        "wasmJs": "coil-network-ktor3-wasm-js",
+        "android": "coil-network-ktor3-android",
+        "linuxX64": "coil-network-ktor3-linuxx64",
+        "linuxArm64": "coil-network-ktor3-linuxarm64"
+      }
+    }
+  ]
+}
