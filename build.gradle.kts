@@ -16,7 +16,15 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.abi.BinariesSource
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
@@ -142,6 +150,31 @@ val remotePublicationEnabled = providers.gradleProperty(remotePublicationPropert
     .orElse(false)
 
 allprojects {
+    val downloadWebToolchain = providers.gradleProperty("coil.webToolchain.download")
+        .map(String::toBooleanStrict)
+        .orElse(true)
+
+    plugins.withType<NodeJsPlugin>().configureEach {
+        extensions.configure<NodeJsEnvSpec> {
+            download.set(downloadWebToolchain)
+        }
+    }
+    plugins.withType<WasmNodeJsPlugin>().configureEach {
+        extensions.configure<WasmNodeJsEnvSpec> {
+            download.set(downloadWebToolchain)
+        }
+    }
+    plugins.withType<YarnPlugin>().configureEach {
+        extensions.configure<YarnRootEnvSpec> {
+            download.set(downloadWebToolchain)
+        }
+    }
+    plugins.withType<WasmYarnPlugin>().configureEach {
+        extensions.configure<WasmYarnRootEnvSpec> {
+            download.set(downloadWebToolchain)
+        }
+    }
+
     // Necessary to publish to Maven.
     group = groupId
     version = versionName
