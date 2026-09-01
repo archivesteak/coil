@@ -26,6 +26,7 @@ from prepare_coil_shard import (
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 REQUIREMENTS_PATH = SCRIPT_DIRECTORY.parent / "coil-maven-variant-requirements.json"
 GRADLE_PROPERTIES_PATH = SCRIPT_DIRECTORY.parents[1] / "gradle.properties"
+RELEASE_WORKFLOW_PATH = SCRIPT_DIRECTORY.parent / "workflows/release-host-shards.yml"
 COMMITS = {
     "compose": "1" * 40,
     "skia": "2" * 40,
@@ -166,6 +167,16 @@ class ReleaseFixture:
 
 
 class PrepareCoilShardTest(unittest.TestCase):
+    def test_central_verifier_runs_before_validated_repository_upload(self) -> None:
+        workflow = RELEASE_WORKFLOW_PATH.read_text(encoding="utf-8")
+        verifier = (
+            "python3 core-contract/.github/scripts/verify-central-publications.py "
+            "\\\n            \"$RUNNER_TEMP/validated-coil/repository\""
+        )
+        upload = "- name: Upload validated core, resources, plugin, and Coil repository"
+        self.assertIn(verifier, workflow)
+        self.assertLess(workflow.index(verifier), workflow.index(upload))
+
     def test_publication_properties_identify_the_fork_maintainer(self) -> None:
         properties = {}
         for raw_line in GRADLE_PROPERTIES_PATH.read_text(encoding="utf-8").splitlines():
