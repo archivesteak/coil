@@ -32,7 +32,11 @@ on:
         required: true
         type: string
       core_contract_ref:
-        description: Full compose-multiplatform-core contract commit SHA
+        description: Full core commit that produced the upstream artifacts
+        required: true
+        type: string
+      core_tools_ref:
+        description: Full core commit containing the canonical merger and verifiers
         required: true
         type: string
     secrets:
@@ -72,7 +76,11 @@ on:
         type: string
         default: archivesteak/compose-multiplatform-core
       core_contract_ref:
-        description: Full compose-multiplatform-core contract commit SHA
+        description: Full core commit that produced the upstream artifacts
+        required: true
+        type: string
+      core_tools_ref:
+        description: Full core commit containing the canonical merger and verifiers
         required: true
         type: string
 
@@ -125,11 +133,11 @@ jobs:
           persist-credentials: false
           token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
 
-      - name: Check out exact core contract
+      - name: Check out exact core tools contract
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.core_repository }}
-          ref: ${{ inputs.core_contract_ref }}
+          ref: ${{ inputs.core_tools_ref }}
           path: core-contract
           persist-credentials: false
           token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
@@ -145,13 +153,15 @@ jobs:
           RESOURCES_RUN_ID: ${{ inputs.resources_run_id }}
           CORE_REPOSITORY: ${{ inputs.core_repository }}
           CORE_CONTRACT_REF: ${{ inputs.core_contract_ref }}
+          CORE_TOOLS_REF: ${{ inputs.core_tools_ref }}
         run: |
           for declaration in \
             "coil_ref=$COIL_REF" \
             "coil_contract_ref=$COIL_CONTRACT_REF" \
             "resources_ref=$RESOURCES_REF" \
             "resources_contract_ref=$RESOURCES_CONTRACT_REF" \
-            "core_contract_ref=$CORE_CONTRACT_REF"; do
+            "core_contract_ref=$CORE_CONTRACT_REF" \
+            "core_tools_ref=$CORE_TOOLS_REF"; do
             name=${declaration%%=*}
             value=${declaration#*=}
             if [[ ! "$value" =~ ^[0-9a-f]{40}$ ]] || [[ "$value" =~ ^0+$ ]]; then
@@ -181,7 +191,7 @@ jobs:
             "orchestration|$COIL_CONTRACT_REF" \
             "coil-source|$COIL_REF" \
             "resources-contract|$RESOURCES_CONTRACT_REF" \
-            "core-contract|$CORE_CONTRACT_REF"; do
+            "core-contract|$CORE_TOOLS_REF"; do
             directory=${checkout%%|*}
             expected=${checkout#*|}
             resolved=$(git -C "$directory" rev-parse HEAD)
@@ -386,11 +396,11 @@ jobs:
           persist-credentials: false
           token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
 
-      - name: Check out exact core contract
+      - name: Check out exact core tools contract
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.core_repository }}
-          ref: ${{ inputs.core_contract_ref }}
+          ref: ${{ inputs.core_tools_ref }}
           path: core-contract
           persist-credentials: false
           token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
@@ -423,6 +433,7 @@ jobs:
           RESOURCES_REF: ${{ inputs.resources_ref }}
           RESOURCES_CONTRACT_REF: ${{ inputs.resources_contract_ref }}
           CORE_CONTRACT_REF: ${{ inputs.core_contract_ref }}
+          CORE_TOOLS_REF: ${{ inputs.core_tools_ref }}
           PYTHON: ${{ matrix.python }}
         run: |
           if [ "$GITHUB_SHA" != "$COIL_CONTRACT_REF" ]; then
@@ -433,7 +444,7 @@ jobs:
             "orchestration|$COIL_CONTRACT_REF" \
             "coil-source|$COIL_REF" \
             "resources-contract|$RESOURCES_CONTRACT_REF" \
-            "core-contract|$CORE_CONTRACT_REF"; do
+            "core-contract|$CORE_TOOLS_REF"; do
             directory=${checkout%%|*}
             expected=${checkout#*|}
             resolved=$(git -C "$directory" rev-parse HEAD)
@@ -591,11 +602,11 @@ jobs:
           persist-credentials: false
           token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
 
-      - name: Check out exact core contract
+      - name: Check out exact core tools contract
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.core_repository }}
-          ref: ${{ inputs.core_contract_ref }}
+          ref: ${{ inputs.core_tools_ref }}
           path: core-contract
           persist-credentials: false
           token: ${{ secrets.ARTIFACTS_READ_TOKEN }}
@@ -635,6 +646,7 @@ jobs:
           RESOURCES_REF: ${{ inputs.resources_ref }}
           RESOURCES_CONTRACT_REF: ${{ inputs.resources_contract_ref }}
           CORE_CONTRACT_REF: ${{ inputs.core_contract_ref }}
+          CORE_TOOLS_REF: ${{ inputs.core_tools_ref }}
         run: |
           if [ "$GITHUB_SHA" != "$COIL_CONTRACT_REF" ]; then
             echo "workflow head is $GITHUB_SHA, expected coil_contract_ref=$COIL_CONTRACT_REF"
@@ -643,7 +655,7 @@ jobs:
           for checkout in \
             "orchestration|$COIL_CONTRACT_REF" \
             "resources-contract|$RESOURCES_CONTRACT_REF" \
-            "core-contract|$CORE_CONTRACT_REF"; do
+            "core-contract|$CORE_TOOLS_REF"; do
             directory=${checkout%%|*}
             expected=${checkout#*|}
             resolved=$(git -C "$directory" rev-parse HEAD)
