@@ -158,6 +158,42 @@ def module_requirements(requirements: dict[str, Any]) -> dict[str, dict[str, Any
             )
         if set(target_modules) != expected_platforms - {"common"}:
             raise ContractError(f"{artifact} target module platforms are incomplete")
+        for platform, variants in required_variants.items():
+            if (
+                not isinstance(variants, list)
+                or not variants
+                or any(not isinstance(name, str) or not name for name in variants)
+                or len(set(variants)) != len(variants)
+            ):
+                raise ContractError(
+                    f"{artifact} has invalid variants for {platform}"
+                )
+        resource_platforms = {
+            platform
+            for platform, variants in required_variants.items()
+            if any(name.endswith("ResourcesElements-published") for name in variants)
+        }
+        expected_resource_platforms = (
+            {
+                "mingwX64",
+                "macosArm64",
+                "iosArm64",
+                "iosSimulatorArm64",
+                "js",
+                "wasmJs",
+            }
+            if artifact in COMPOSE_ARTIFACTS
+            else set()
+        )
+        if resource_platforms != expected_resource_platforms:
+            raise ContractError(f"{artifact} resource variants differ from its plugin contract")
+        metadata_platforms = {
+            platform
+            for platform, variants in required_variants.items()
+            if any(name.endswith("MetadataElements-published") for name in variants)
+        }
+        if metadata_platforms != {"macosArm64", "iosArm64", "iosSimulatorArm64"}:
+            raise ContractError(f"{artifact} Apple metadata variants are incomplete")
         for platform, target in target_modules.items():
             if not isinstance(target, str) or not target.startswith(f"{artifact}-"):
                 raise ContractError(
@@ -392,7 +428,17 @@ def verify_archive(path: Path) -> None:
         raise ContractError(f"published AAR lacks AndroidManifest.xml: {path}")
 
 
-def validate_publication(version_directory: Path, artifact: str) -> None:
+def validate_publication(
+    version_directory: Path,
+    artifact: str,
+    root_artifact: str,
+    expected_variants: set[str] | None = None,
+) -> None:
+    if root_artifact not in ROOT_ARTIFACTS:
+        raise ContractError(f"{artifact} maps to unknown Coil root {root_artifact}")
+    is_root = artifact == root_artifact
+    if expected_variants is None or not expected_variants:
+        raise ContractError(f"{artifact} has no expected publication variants")
     base = f"{artifact}-{VERSION}"
     primary = f"{base}.{primary_extension(artifact)}"
     expected = {
@@ -402,6 +448,22 @@ def validate_publication(version_directory: Path, artifact: str) -> None:
         f"{base}-sources.jar",
         f"{base}-javadoc.jar",
     }
+    tooling_name = f"{base}-kotlin-tooling-metadata.json"
+    metadata_name = f"{base}-metadata.jar"
+    resources_name = f"{base}-kotlin_resources.kotlin_resources.zip"
+    if is_root:
+        expected.add(tooling_name)
+    else:
+        if any(
+            name.endswith("MetadataElements-published")
+            for name in expected_variants
+        ):
+            expected.add(metadata_name)
+        if any(
+            name.endswith("ResourcesElements-published")
+            for name in expected_variants
+        ):
+            expected.add(resources_name)
     existing = {path.name for path in version_directory.iterdir() if path.is_file()}
     if existing != expected:
         raise ContractError(
@@ -467,11 +529,53 @@ def validate_publication(version_directory: Path, artifact: str) -> None:
         component.get("group"),
         component.get("module"),
         component.get("version"),
-    ) != (GROUP, artifact, VERSION):
+    ) != (GROUP, root_artifact, VERSION):
         raise ContractError(f"{artifact} Gradle metadata has the wrong component")
+    component_url = component.get("url")
+    if is_root:
+        if component_url is not None:
+            raise ContractError(f"{artifact} root Gradle metadata must not redirect")
+    else:
+        expected_url = (
+            f"../../{root_artifact}/{VERSION}/"
+            f"{root_artifact}-{VERSION}.module"
+        )
+        if component_url != expected_url:
+            raise ContractError(
+                f"{artifact} Gradle metadata has the wrong root redirect"
+            )
     variants = module.get("variants")
     if not isinstance(variants, list) or not variants:
         raise ContractError(f"{artifact} Gradle metadata has no variants")
+    variant_names = [
+        variant.get("name") for variant in variants if isinstance(variant, dict)
+    ]
+    if len(variant_names) != len(variants) or any(
+        not isinstance(name, str) or not name for name in variant_names
+    ):
+        raise ContractError(f"{artifact} Gradle metadata has malformed variants")
+    if len(set(variant_names)) != len(variant_names):
+        raise ContractError(f"{artifact} Gradle metadata repeats a variant")
+    if set(variant_names) != expected_variants:
+        raise ContractError(
+            f"{artifact} Gradle metadata variants differ: "
+            f"expected {sorted(expected_variants)}, found {sorted(variant_names)}"
+        )
+
+    if is_root:
+        tooling = load_json(
+            version_directory / tooling_name,
+            f"{artifact} Kotlin tooling metadata",
+        )
+        if (
+            tooling.get("schemaVersion") != "1.1.0"
+            or tooling.get("buildSystem") != "Gradle"
+            or tooling.get("buildPlugin")
+            != "org.jetbrains.kotlin.gradle.plugin.KotlinMultiplatformPluginWrapper"
+            or not isinstance(tooling.get("projectTargets"), list)
+            or not tooling["projectTargets"]
+        ):
+            raise ContractError(f"{artifact} Kotlin tooling metadata is incomplete")
 
     pom_text = pom_path.read_text(encoding="utf-8")
     module_text = module_path.read_text(encoding="utf-8")
@@ -486,6 +590,10 @@ def validate_publication(version_directory: Path, artifact: str) -> None:
             )
     for filename in (primary, f"{base}-sources.jar", f"{base}-javadoc.jar"):
         verify_archive(version_directory / filename)
+    for filename in (metadata_name, resources_name):
+        path = version_directory / filename
+        if filename in expected:
+            verify_archive(path)
 
 
 def prepare_shard(
@@ -519,6 +627,26 @@ def prepare_shard(
         resources_requirements_path=resources_requirements_path,
         plugin_report_path=plugin_report_path,
     )
+    modules = module_requirements(requirements)
+    publication_specs: dict[str, tuple[str, set[str]]] = {
+        root: (
+            root,
+            {
+                variant
+                for variants in modules[root]["requiredVariants"].values()
+                for variant in variants
+            },
+        )
+        for root in ROOT_ARTIFACTS
+    }
+    for root, module in modules.items():
+        for platform, target in module["targetModules"].items():
+            spec = (root, set(module["requiredVariants"][platform]))
+            previous = publication_specs.setdefault(target, spec)
+            if previous != spec:
+                raise ContractError(
+                    f"Coil target {target} has conflicting publication mappings"
+                )
 
     source_group = source_repository.joinpath(*GROUP.split("."))
     if source_group.is_symlink() or not source_group.is_dir():
@@ -537,7 +665,16 @@ def prepare_shard(
         if not source_version.is_dir():
             raise ContractError(f"missing Coil publication: {artifact}:{VERSION}")
         ensure_tree_has_no_symlinks(source_version)
-        validate_publication(source_version, artifact)
+        spec = publication_specs.get(artifact)
+        if spec is None:
+            raise ContractError(f"{artifact} has no Coil root publication mapping")
+        root_artifact, expected_variants = spec
+        validate_publication(
+            source_version,
+            artifact,
+            root_artifact,
+            expected_variants,
+        )
         shutil.copytree(source_version, destination_group / artifact / VERSION)
 
     marker = destination / "provenance" / f"{owner}.json"

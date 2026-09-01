@@ -5,20 +5,25 @@ import hashlib
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from prepare_coil_shard import (
     COMPOSE_ARTIFACTS,
     ContractError,
     EXPECTED_PLATFORM_OWNERS,
+    GROUP,
     OWNERS,
     PLUGIN_FILES,
     PLUGIN_IMPLEMENTATION,
     PLUGIN_MARKER,
     ROOT_ARTIFACTS,
+    VERSION,
     expected_artifacts,
     load_json,
     module_requirements,
+    primary_extension,
+    validate_publication,
     validate_release_contract,
 )
 
@@ -55,6 +60,95 @@ def provenance_record(owner: str, sources: dict[str, str]) -> dict[str, object]:
         "sha256": hashlib.sha256(owner.encode()).hexdigest(),
         "sources": sources,
     }
+
+
+def write_publication_fixture(
+    version_directory: Path,
+    artifact: str,
+    root_artifact: str,
+    variants: tuple[str, ...] | None = None,
+) -> Path | None:
+    base = f"{artifact}-{VERSION}"
+    (version_directory / f"{base}.pom").write_text(
+        f"""<project>
+  <groupId>{GROUP}</groupId>
+  <artifactId>{artifact}</artifactId>
+  <version>{VERSION}</version>
+  <name>Coil</name>
+  <description>Image loading for Kotlin Multiplatform</description>
+  <url>https://github.com/archivesteak/coil</url>
+  <licenses><license><name>Apache-2.0</name><url>https://www.apache.org/licenses/LICENSE-2.0.txt</url></license></licenses>
+  <developers><developer><id>archivesteak</id><name>Jack Harrington</name><url>https://github.com/archivesteak</url></developer></developers>
+  <scm>
+    <url>https://github.com/archivesteak/coil</url>
+    <connection>scm:git:https://github.com/archivesteak/coil.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/archivesteak/coil.git</developerConnection>
+  </scm>
+</project>
+""",
+        encoding="utf-8",
+        newline="\n",
+    )
+    component = {
+        "group": GROUP,
+        "module": root_artifact,
+        "version": VERSION,
+    }
+    if artifact != root_artifact:
+        component["url"] = (
+            f"../../{root_artifact}/{VERSION}/{root_artifact}-{VERSION}.module"
+        )
+    write_json(
+        version_directory / f"{base}.module",
+        {
+            "component": component,
+            "variants": [
+                {"name": name}
+                for name in (variants or ("metadataApiElements",))
+            ],
+        },
+    )
+    primary = f"{base}.{primary_extension(artifact)}"
+    for filename in (
+        primary,
+        f"{base}-sources.jar",
+        f"{base}-javadoc.jar",
+    ):
+        with zipfile.ZipFile(version_directory / filename, "w") as archive:
+            entry = (
+                "default/manifest"
+                if filename == primary and filename.endswith(".klib")
+                else "content.txt"
+            )
+            archive.writestr(entry, "verified")
+    if variants and any(
+        name.endswith("MetadataElements-published") for name in variants
+    ):
+        with zipfile.ZipFile(
+            version_directory / f"{base}-metadata.jar", "w"
+        ) as archive:
+            archive.writestr("metadata/content.knm", "verified")
+    if variants and any(
+        name.endswith("ResourcesElements-published") for name in variants
+    ):
+        with zipfile.ZipFile(
+            version_directory / f"{base}-kotlin_resources.kotlin_resources.zip",
+            "w",
+        ) as archive:
+            archive.writestr("composeResources/verified.txt", "verified")
+    if artifact != root_artifact:
+        return None
+    tooling_path = version_directory / f"{base}-kotlin-tooling-metadata.json"
+    write_json(
+        tooling_path,
+        {
+            "schemaVersion": "1.1.0",
+            "buildSystem": "Gradle",
+            "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinMultiplatformPluginWrapper",
+            "projectTargets": [{"platformType": "common"}],
+        },
+    )
+    return tooling_path
 
 
 class ReleaseFixture:
@@ -167,6 +261,115 @@ class ReleaseFixture:
 
 
 class PrepareCoilShardTest(unittest.TestCase):
+    def test_root_publication_requires_valid_kotlin_tooling_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            version_directory = Path(directory)
+            artifact = ROOT_ARTIFACTS[0]
+            tooling_path = write_publication_fixture(
+                version_directory,
+                artifact,
+                artifact,
+            )
+            self.assertIsNotNone(tooling_path)
+
+            expected_variants = {"metadataApiElements"}
+            validate_publication(
+                version_directory,
+                artifact,
+                artifact,
+                expected_variants,
+            )
+
+            write_json(
+                tooling_path,
+                {
+                    "schemaVersion": "1.1.0",
+                    "buildSystem": "Gradle",
+                    "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinMultiplatformPluginWrapper",
+                    "projectTargets": [],
+                },
+            )
+            with self.assertRaisesRegex(
+                ContractError, "Kotlin tooling metadata is incomplete"
+            ):
+                validate_publication(
+                    version_directory,
+                    artifact,
+                    artifact,
+                    expected_variants,
+                )
+
+    def test_leaf_publication_redirects_to_its_declared_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            version_directory = Path(directory)
+            artifact = "coil-core-jvm"
+            root_artifact = "coil-core"
+            variants = (
+                "jvmApiElements-published",
+                "jvmRuntimeElements-published",
+                "jvmSourcesElements-published",
+            )
+            write_publication_fixture(
+                version_directory,
+                artifact,
+                root_artifact,
+                variants,
+            )
+
+            validate_publication(
+                version_directory,
+                artifact,
+                root_artifact,
+                set(variants),
+            )
+
+            module_path = version_directory / f"{artifact}-{VERSION}.module"
+            module = load_json(module_path, "fixture metadata")
+            module["component"]["url"] = "../../coil/3.6.0-mingw/coil.module"
+            write_json(module_path, module)
+            with self.assertRaisesRegex(ContractError, "wrong root redirect"):
+                validate_publication(
+                    version_directory,
+                    artifact,
+                    root_artifact,
+                    set(variants),
+                )
+
+    def test_compose_apple_leaf_requires_metadata_and_resources_archives(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            version_directory = Path(directory)
+            artifact = "coil-compose-core-macosarm64"
+            root_artifact = "coil-compose-core"
+            variants = (
+                "macosArm64ApiElements-published",
+                "macosArm64SourcesElements-published",
+                "macosArm64MetadataElements-published",
+                "macosArm64ResourcesElements-published",
+            )
+            write_publication_fixture(
+                version_directory,
+                artifact,
+                root_artifact,
+                variants,
+            )
+
+            validate_publication(
+                version_directory,
+                artifact,
+                root_artifact,
+                set(variants),
+            )
+
+            metadata = version_directory / f"{artifact}-{VERSION}-metadata.jar"
+            metadata.unlink()
+            with self.assertRaisesRegex(ContractError, "publication files differ"):
+                validate_publication(
+                    version_directory,
+                    artifact,
+                    root_artifact,
+                    set(variants),
+                )
+
     def test_central_verifier_runs_before_validated_repository_upload(self) -> None:
         workflow = RELEASE_WORKFLOW_PATH.read_text(encoding="utf-8")
         verifier = (
@@ -214,14 +417,40 @@ class PrepareCoilShardTest(unittest.TestCase):
                 variants["common"],
                 ["metadataApiElements", "metadataSourcesElements"],
             )
-            self.assertEqual(
-                variants["mingwX64"],
-                ["mingwX64ApiElements-published", "mingwX64SourcesElements-published"],
-            )
+            expected_mingw_variants = [
+                "mingwX64ApiElements-published",
+                "mingwX64SourcesElements-published",
+            ]
+            if artifact in COMPOSE_ARTIFACTS:
+                expected_mingw_variants.append("mingwX64ResourcesElements-published")
+            self.assertEqual(variants["mingwX64"], expected_mingw_variants)
             expected_platforms = set(EXPECTED_PLATFORM_OWNERS)
             if artifact in COMPOSE_ARTIFACTS:
                 expected_platforms -= {"linuxX64", "linuxArm64"}
             self.assertEqual(set(variants), expected_platforms)
+            for platform in ("macosArm64", "iosArm64", "iosSimulatorArm64"):
+                self.assertIn(
+                    f"{platform}MetadataElements-published",
+                    variants[platform],
+                )
+            resource_platforms = {
+                platform
+                for platform, names in variants.items()
+                if any(name.endswith("ResourcesElements-published") for name in names)
+            }
+            self.assertEqual(
+                resource_platforms,
+                {
+                    "mingwX64",
+                    "macosArm64",
+                    "iosArm64",
+                    "iosSimulatorArm64",
+                    "js",
+                    "wasmJs",
+                }
+                if artifact in COMPOSE_ARTIFACTS
+                else set(),
+            )
 
     def test_validates_exact_upstream_reports_and_plugin_hashes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
