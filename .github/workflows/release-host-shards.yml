@@ -426,6 +426,19 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
+      - name: Set up the Kotlin-pinned Node runtime
+        if: matrix.owner == 'web'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.10.0"
+
+      - name: Set up the Kotlin-pinned Yarn runtime
+        if: matrix.owner == 'web'
+        shell: bash
+        run: |
+          npm install --global yarn@1.22.22
+          test "$(yarn --version)" = 1.22.22
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
@@ -491,6 +504,7 @@ jobs:
         working-directory: coil-source
         env:
           TEST_TASKS: ${{ matrix.test_tasks }}
+          WEB_TOOLCHAIN_DOWNLOAD: ${{ matrix.owner == 'web' && 'false' || 'true' }}
         run: |
           read -r -a tasks <<<"$TEST_TASKS"
           arguments=(
@@ -499,6 +513,7 @@ jobs:
             --stacktrace
             --console=plain
             -Pcoil.remotePublication.enabled=false
+            "-Pcoil.webToolchain.download=$WEB_TOOLCHAIN_DOWNLOAD"
           )
           if [ "$RUNNER_OS" = Windows ]; then
             ./gradlew.bat "${arguments[@]}" "${tasks[@]}"
@@ -512,6 +527,7 @@ jobs:
         env:
           OWNER: ${{ matrix.owner }}
           PUBLISH_TASK: ${{ matrix.publish_task }}
+          WEB_TOOLCHAIN_DOWNLOAD: ${{ matrix.owner == 'web' && 'false' || 'true' }}
         run: |
           arguments=(
             "-Dmaven.repo.local=$RUNNER_TEMP/validated-resources/repository"
@@ -519,6 +535,7 @@ jobs:
             --stacktrace
             --console=plain
             -Pcoil.remotePublication.enabled=false
+            "-Pcoil.webToolchain.download=$WEB_TOOLCHAIN_DOWNLOAD"
             "-Pcoil.localPublication.owner=$OWNER"
             "$PUBLISH_TASK"
           )
