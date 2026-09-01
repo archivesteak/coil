@@ -310,6 +310,10 @@ class PrepareCoilShardTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('require("node-polyfill-webpack-plugin")', karma_config)
         self.assertIn("new NodePolyfillPlugin()", karma_config)
+        self.assertIn("isKotlinJsTest", karma_config)
+        self.assertIn("static/load.mjs", karma_config)
+        self.assertIn("if (isKotlinJsTest)", karma_config)
+
 
     def test_root_publication_requires_valid_kotlin_tooling_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
